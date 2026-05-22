@@ -23,7 +23,7 @@ internal static class EscPosBuilder
         Line(bytes, "Se voce esta lendo isso,");
         Line(bytes, "a impressora esta configurada.");
         Line(bytes);
-        Line(bytes, $"Data: {DateTime.Now:dd/MM/yyyy HH:mm}");
+        Line(bytes, $"Data: {AppClock.SafeNow:dd/MM/yyyy HH:mm}");
         Line(bytes, "--------------------------------");
         Center(bytes);
         Line(bytes, "Zelo");

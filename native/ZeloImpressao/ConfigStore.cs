@@ -92,7 +92,7 @@ internal sealed class ConfigStore
         {
             var line = JsonSerializer.Serialize(new
             {
-                ts = DateTimeOffset.Now,
+                ts = AppClock.UtcNow,
                 message,
                 data
             });
@@ -109,7 +109,8 @@ internal sealed class ConfigStore
         try
         {
             if (!File.Exists(_configPath)) return new AgentConfig();
-            return JsonSerializer.Deserialize<AgentConfig>(File.ReadAllText(_configPath, Encoding.UTF8)) ?? new AgentConfig();
+            var config = JsonSerializer.Deserialize<AgentConfig>(File.ReadAllText(_configPath, Encoding.UTF8)) ?? new AgentConfig();
+            return Normalize(config);
         }
         catch
         {
@@ -134,6 +135,34 @@ internal sealed class ConfigStore
             TokenHash = config.TokenHash,
             AllowedOrigins = config.AllowedOrigins.ToList()
         };
+    }
+
+    public static ApiConfigView ToApiView(AgentConfig config)
+    {
+        return new ApiConfigView
+        {
+            SelectedPrinterId = config.SelectedPrinterId,
+            SelectedPrinterName = config.SelectedPrinterName,
+            StartWithWindows = config.StartWithWindows,
+            RequirePairing = config.RequirePairing,
+            AllowedOrigins = config.AllowedOrigins.ToList()
+        };
+    }
+
+    private static AgentConfig Normalize(AgentConfig config)
+    {
+        config.AllowedOrigins = config.AllowedOrigins?
+            .Where(origin => !string.IsNullOrWhiteSpace(origin))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList()
+            ?? AppConstants.DefaultAllowedOrigins.ToList();
+
+        if (config.AllowedOrigins.Count == 0)
+        {
+            config.AllowedOrigins = AppConstants.DefaultAllowedOrigins.ToList();
+        }
+
+        return config;
     }
 
     private static void ApplyStartup(bool enabled)

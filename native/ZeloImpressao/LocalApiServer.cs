@@ -123,14 +123,7 @@ internal sealed class LocalApiServer
             return Results.Json(new
             {
                 ok = true,
-                config = new
-                {
-                    cfg.SelectedPrinterId,
-                    cfg.SelectedPrinterName,
-                    cfg.StartWithWindows,
-                    cfg.RequirePairing,
-                    cfg.AllowedOrigins
-                }
+                config = ConfigStore.ToApiView(cfg)
             });
         });
 
@@ -139,7 +132,7 @@ internal sealed class LocalApiServer
             if (!RequireAuth(context)) return Unauthorized();
             var patch = await ReadJson<ConfigPatch>(context.Request) ?? new ConfigPatch();
             var cfg = _configStore.Update(patch);
-            return Results.Json(new { ok = true, config = cfg });
+            return Results.Json(new { ok = true, config = ConfigStore.ToApiView(cfg) });
         });
 
         app.MapPost("/print", async (HttpContext context) =>

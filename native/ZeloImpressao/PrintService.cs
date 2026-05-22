@@ -46,6 +46,7 @@ internal sealed class PrintService
     public PrinterInfo TestPrint(string? printerId)
     {
         var printer = _printerManager.ResolvePrinter(printerId) ?? throw new InvalidOperationException("Nenhuma impressora instalada foi encontrada no Windows.");
+        if (printer.IsOffline) throw new InvalidOperationException("A impressora selecionada está offline.");
         RawPrinter.SendBytes(printer.Name, EscPosBuilder.BuildTestReceipt());
         return printer;
     }

@@ -39,16 +39,29 @@ internal sealed class TrayAppContext : ApplicationContext
             return;
         }
 
-        _settingsForm = new SettingsForm(_configStore, _pairingService, _printerManager, _printService, _apiServer);
-        _settingsForm.FormClosing += (_, args) =>
+        try
         {
-            if (args.CloseReason == CloseReason.UserClosing)
+            _settingsForm = new SettingsForm(_configStore, _pairingService, _printerManager, _printService, _apiServer);
+            _settingsForm.FormClosing += (_, args) =>
             {
-                args.Cancel = true;
-                _settingsForm.Hide();
-            }
-        };
-        _settingsForm.Show();
+                if (args.CloseReason == CloseReason.UserClosing)
+                {
+                    args.Cancel = true;
+                    _settingsForm.Hide();
+                }
+            };
+            _settingsForm.Show();
+        }
+        catch (Exception ex)
+        {
+            _configStore.Log("settings_open_failed", ex.ToString());
+            MessageBox.Show(
+                "Nao foi possivel abrir as configuracoes agora. Feche e abra o Zelo Impressao novamente.",
+                AppConstants.ProductName,
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Error
+            );
+        }
     }
 
     protected override void Dispose(bool disposing)
