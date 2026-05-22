@@ -1,5 +1,5 @@
 #define MyAppName "Zelo Impressão"
-#define MyAppVersion "0.1.1"
+#define MyAppVersion "0.1.2"
 #define MyAppPublisher "Téchne Sistemas"
 #define MyAppExeName "ZeloImpressao.exe"
 #define PublishDir "..\..\release\dotnet\win-x64"
@@ -17,6 +17,8 @@ OutputBaseFilename=Zelo-Impressao-{#MyAppVersion}-Setup
 Compression=lzma
 SolidCompression=yes
 WizardStyle=modern
+SetupIconFile=..\..\assets\printer.ico
+UninstallDisplayIcon={app}\{#MyAppExeName}
 PrivilegesRequired=lowest
 ArchitecturesAllowed=x64
 ArchitecturesInstallIn64BitMode=x64

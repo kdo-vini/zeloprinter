@@ -20,21 +20,25 @@ internal sealed class PrinterManager
         try
         {
             using var searcher = new ManagementObjectSearcher("SELECT Name, DeviceID, Default, WorkOffline, PrinterStatus, PortName, DriverName FROM Win32_Printer");
-            foreach (ManagementObject row in searcher.Get())
+            using var collection = searcher.Get();
+            foreach (ManagementObject row in collection)
             {
-                var name = Convert.ToString(row["Name"]) ?? "";
-                if (string.IsNullOrWhiteSpace(name)) continue;
-
-                result.Add(new PrinterInfo
+                using (row)
                 {
-                    Id = Convert.ToString(row["DeviceID"]) ?? name,
-                    Name = name,
-                    IsDefault = Convert.ToBoolean(row["Default"] ?? string.Equals(defaultPrinter, name, StringComparison.OrdinalIgnoreCase)),
-                    IsOffline = Convert.ToBoolean(row["WorkOffline"] ?? false),
-                    Status = NormalizeStatus(row["PrinterStatus"]),
-                    PortName = Convert.ToString(row["PortName"]),
-                    DriverName = Convert.ToString(row["DriverName"])
-                });
+                    var name = Convert.ToString(row["Name"]) ?? "";
+                    if (string.IsNullOrWhiteSpace(name)) continue;
+
+                    result.Add(new PrinterInfo
+                    {
+                        Id = Convert.ToString(row["DeviceID"]) ?? name,
+                        Name = name,
+                        IsDefault = Convert.ToBoolean(row["Default"] ?? string.Equals(defaultPrinter, name, StringComparison.OrdinalIgnoreCase)),
+                        IsOffline = Convert.ToBoolean(row["WorkOffline"] ?? false),
+                        Status = NormalizeStatus(row["PrinterStatus"]),
+                        PortName = Convert.ToString(row["PortName"]),
+                        DriverName = Convert.ToString(row["DriverName"])
+                    });
+                }
             }
         }
         catch

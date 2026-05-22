@@ -8,12 +8,13 @@
     <AssemblyName>ZeloImpressao</AssemblyName>
     <RootNamespace>ZeloImpressao</RootNamespace>
     <ApplicationManifest>app.manifest</ApplicationManifest>
-    <Version>0.1.1</Version>
-    <AssemblyVersion>0.1.1.0</AssemblyVersion>
-    <FileVersion>0.1.1.0</FileVersion>
-    <Company>Téchne Sistemas</Company>
-    <Product>Zelo Impressão</Product>
-    <Description>Componente local do Zelo para impressão automática de comprovantes, pedidos e comandas.</Description>
+    <Version>0.1.2</Version>
+    <AssemblyVersion>0.1.2.0</AssemblyVersion>
+    <FileVersion>0.1.2.0</FileVersion>
+    <ApplicationIcon>..\..\assets\printer.ico</ApplicationIcon>
+    <Company>T&#233;chne Sistemas</Company>
+    <Product>Zelo Impress&#227;o</Product>
+    <Description>Componente local do Zelo para impress&#227;o autom&#225;tica de comprovantes, pedidos e comandas.</Description>
   </PropertyGroup>
 
   <ItemGroup>

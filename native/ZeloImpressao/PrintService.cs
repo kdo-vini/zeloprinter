@@ -63,7 +63,9 @@ internal sealed class PrintService
         doc.PrinterSettings.PrinterName = printerName;
         doc.DocumentName = AppConstants.ProductName;
 
-        var remaining = NormalizeText(text);
+        var lines = NormalizeText(text)
+            .Split(Environment.NewLine, StringSplitOptions.None);
+        var currentLine = 0;
         using var font = new Font("Consolas", 9f, FontStyle.Regular, GraphicsUnit.Point);
 
         doc.PrintPage += (_, e) =>
@@ -74,8 +76,22 @@ internal sealed class PrintService
             bounds.Width = Math.Max(200, e.PageBounds.Width - 10);
             bounds.Height = Math.Max(200, e.PageBounds.Height - 10);
 
-            e.Graphics.DrawString(remaining, font, Brushes.Black, bounds);
-            e.HasMorePages = false;
+            var lineHeight = font.GetHeight(e.Graphics);
+            var maxLines = Math.Max(1, (int)Math.Floor(bounds.Height / lineHeight));
+            var pageLines = lines
+                .Skip(currentLine)
+                .Take(maxLines)
+                .ToArray();
+
+            e.Graphics.DrawString(
+                string.Join(Environment.NewLine, pageLines),
+                font,
+                Brushes.Black,
+                bounds
+            );
+
+            currentLine += pageLines.Length;
+            e.HasMorePages = currentLine < lines.Length;
         };
 
         doc.Print();

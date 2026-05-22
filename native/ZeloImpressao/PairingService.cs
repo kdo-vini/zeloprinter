@@ -15,7 +15,7 @@ internal sealed class PairingService
 
     public (string Code, DateTimeOffset ExpiresAt) GetCode()
     {
-        if (DateTimeOffset.Now > _expiresAt.AddSeconds(-30))
+        if (DateTimeOffset.Now.AddSeconds(30) > _expiresAt)
         {
             _code = RandomNumberGenerator.GetInt32(100000, 999999).ToString();
             _expiresAt = DateTimeOffset.Now.AddMinutes(10);

@@ -153,9 +153,8 @@ Prioridade de comunicação:
 
 Para os apps web se comunicarem com o serviço local em `http://127.0.0.1:17321`, as origens precisam estar liberadas no `zeloprinter`.
 
-Arquivos relevantes:
+Arquivo relevante:
 
-- `src/constants.ts`
 - `native/ZeloImpressao/AppConstants.cs`
 
 Origem adicionada neste trabalho:

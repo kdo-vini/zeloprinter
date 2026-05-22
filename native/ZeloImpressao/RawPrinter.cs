@@ -4,21 +4,21 @@ namespace ZeloImpressao;
 
 internal static class RawPrinter
 {
-    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi)]
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
     private sealed class DocInfo
     {
-        [MarshalAs(UnmanagedType.LPStr)] public string DocumentName = AppConstants.ProductName;
-        [MarshalAs(UnmanagedType.LPStr)] public string? OutputFile;
-        [MarshalAs(UnmanagedType.LPStr)] public string DataType = "RAW";
+        [MarshalAs(UnmanagedType.LPWStr)] public string DocumentName = AppConstants.ProductName;
+        [MarshalAs(UnmanagedType.LPWStr)] public string? OutputFile;
+        [MarshalAs(UnmanagedType.LPWStr)] public string DataType = "RAW";
     }
 
-    [DllImport("winspool.Drv", EntryPoint = "OpenPrinterA", SetLastError = true, CharSet = CharSet.Ansi, ExactSpelling = true)]
+    [DllImport("winspool.Drv", EntryPoint = "OpenPrinterW", SetLastError = true, CharSet = CharSet.Unicode, ExactSpelling = true)]
     private static extern bool OpenPrinter(string printerName, out IntPtr printerHandle, IntPtr printerDefaults);
 
     [DllImport("winspool.Drv", EntryPoint = "ClosePrinter", SetLastError = true, ExactSpelling = true)]
     private static extern bool ClosePrinter(IntPtr printerHandle);
 
-    [DllImport("winspool.Drv", EntryPoint = "StartDocPrinterA", SetLastError = true, CharSet = CharSet.Ansi, ExactSpelling = true)]
+    [DllImport("winspool.Drv", EntryPoint = "StartDocPrinterW", SetLastError = true, CharSet = CharSet.Unicode, ExactSpelling = true)]
     private static extern bool StartDocPrinter(IntPtr printerHandle, int level, [In] DocInfo docInfo);
 
     [DllImport("winspool.Drv", EntryPoint = "EndDocPrinter", SetLastError = true, ExactSpelling = true)]

@@ -35,14 +35,13 @@ iscc .\native\installer\ZeloImpressao.iss
 Saída:
 
 ```text
-release\installer\Zelo-Impressao-0.1.1-Setup.exe
+release\installer\Zelo-Impressao-0.1.2-Setup.exe
 ```
 
 ## Versionamento
 
 A versão de release do app agora usa `package.json` como fonte de verdade e é sincronizada automaticamente com:
 
-- `src/constants.ts`
 - `native/ZeloImpressao/AppConstants.cs`
 - `native/ZeloImpressao/ZeloImpressao.csproj`
 - `native/installer/ZeloImpressao.iss`

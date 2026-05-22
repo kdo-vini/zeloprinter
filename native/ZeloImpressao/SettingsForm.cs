@@ -25,6 +25,7 @@ internal sealed class SettingsForm : Form
         _apiServer = apiServer;
 
         Text = AppConstants.ProductName;
+        Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath);
         Width = 760;
         Height = 560;
         StartPosition = FormStartPosition.CenterScreen;

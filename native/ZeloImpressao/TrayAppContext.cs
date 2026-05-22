@@ -2,6 +2,7 @@ namespace ZeloImpressao;
 
 internal sealed class TrayAppContext : ApplicationContext
 {
+    private static readonly Icon AppIcon = Icon.ExtractAssociatedIcon(Application.ExecutablePath) ?? SystemIcons.Application;
     private readonly ConfigStore _configStore;
     private readonly PairingService _pairingService;
     private readonly PrinterManager _printerManager;
@@ -20,7 +21,7 @@ internal sealed class TrayAppContext : ApplicationContext
 
         _notifyIcon = new NotifyIcon
         {
-            Icon = SystemIcons.Application,
+            Icon = AppIcon,
             Text = AppConstants.ProductName,
             Visible = true,
             ContextMenuStrip = BuildMenu()

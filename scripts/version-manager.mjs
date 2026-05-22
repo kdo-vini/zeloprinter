@@ -13,7 +13,6 @@ const clientPackageJsonPath = path.join(
   "client",
   "package.json",
 );
-const jsConstantsPath = path.join(root, "src", "constants.ts");
 const csConstantsPath = path.join(
   root,
   "native",
@@ -37,13 +36,13 @@ const nativeReadmePath = path.join(root, "native", "README.md");
 const VALID_VERSION = /^\d+\.\d+\.\d+$/;
 
 function fail(message) {
-  console.error(`❌ ${message}`);
+  console.error(`ERROR: ${message}`);
   process.exit(1);
 }
 
 function assertVersion(version) {
   if (!VALID_VERSION.test(version)) {
-    fail(`Versão inválida: "${version}". Use o formato semver simples x.y.z.`);
+    fail(`Versao invalida: "${version}". Use o formato semver simples x.y.z.`);
   }
 }
 
@@ -55,7 +54,7 @@ function bumpVersion(version, bumpType) {
   if (bumpType === "minor") return `${major}.${minor + 1}.0`;
   if (bumpType === "patch") return `${major}.${minor}.${patch + 1}`;
 
-  fail(`Tipo de bump inválido: "${bumpType}". Use major, minor ou patch.`);
+  fail(`Tipo de bump invalido: "${bumpType}". Use major, minor ou patch.`);
 }
 
 function toAssemblyVersion(version) {
@@ -74,9 +73,7 @@ async function replaceInFile(filePath, matcher, replacer) {
   const current = await readFile(filePath, "utf8");
 
   if (!matcher.test(current)) {
-    fail(
-      `Não encontrei o padrão esperado em ${path.relative(root, filePath)}.`,
-    );
+    fail(`Nao encontrei o padrao esperado em ${path.relative(root, filePath)}.`);
   }
 
   const next = current.replace(matcher, replacer);
@@ -87,11 +84,6 @@ async function syncVersionFiles(version) {
   assertVersion(version);
   const assemblyVersion = toAssemblyVersion(version);
 
-  await replaceInFile(
-    jsConstantsPath,
-    /export const API_VERSION = ".*";/,
-    `export const API_VERSION = "${version}";`,
-  );
   await replaceInFile(
     csConstantsPath,
     /public const string Version = ".*";/,
@@ -105,9 +97,7 @@ async function syncVersionFiles(version) {
 
   const csprojRaw = await readFile(csprojPath, "utf8");
   if (!/<Version>.*<\/Version>/.test(csprojRaw)) {
-    fail(
-      "Não encontrei <Version> em native/ZeloImpressao/ZeloImpressao.csproj.",
-    );
+    fail("Nao encontrei <Version> em native/ZeloImpressao/ZeloImpressao.csproj.");
   }
 
   let csprojNext = csprojRaw.replace(
@@ -165,7 +155,7 @@ async function setVersion(version) {
   await writeJson(clientPackageJsonPath, clientPackageJson);
 
   await syncVersionFiles(version);
-  console.log(`✅ Versão sincronizada para ${version}`);
+  console.log(`Version synchronized to ${version}`);
 }
 
 async function main() {
@@ -175,14 +165,13 @@ async function main() {
 
   if (command === "sync") {
     await syncVersionFiles(currentVersion);
-    console.log(`✅ Arquivos sincronizados com a versão ${currentVersion}`);
+    console.log(`Files synchronized to version ${currentVersion}`);
     return;
   }
 
   if (command === "set") {
     const version = process.argv[3];
-    if (!version)
-      fail("Informe a versão. Exemplo: npm run version:set -- 0.1.1");
+    if (!version) fail("Informe a versao. Exemplo: npm run version:set -- 0.1.1");
     await setVersion(version);
     return;
   }
@@ -194,7 +183,7 @@ async function main() {
     return;
   }
 
-  fail(`Comando inválido: "${command}". Use sync, set ou bump.`);
+  fail(`Comando invalido: "${command}". Use sync, set ou bump.`);
 }
 
 await main();

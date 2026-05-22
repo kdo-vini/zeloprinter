@@ -62,7 +62,7 @@ internal sealed class LocalApiServer
                 await context.Response.WriteAsJsonAsync(new ApiError { Message = "Payload muito grande." });
                 return;
             }
-            if (!CheckCors(context)) return;
+            if (!await CheckCorsAsync(context)) return;
             if (context.Request.Method == HttpMethods.Options)
             {
                 context.Response.StatusCode = StatusCodes.Status204NoContent;
@@ -179,7 +179,7 @@ internal sealed class LocalApiServer
         await StartAsync();
     }
 
-    private bool CheckCors(HttpContext context)
+    private async Task<bool> CheckCorsAsync(HttpContext context)
     {
         var origin = context.Request.Headers.Origin.ToString();
         if (string.IsNullOrWhiteSpace(origin)) return true;
@@ -187,7 +187,7 @@ internal sealed class LocalApiServer
         if (!_configStore.Get().AllowedOrigins.Contains(origin, StringComparer.OrdinalIgnoreCase))
         {
             context.Response.StatusCode = StatusCodes.Status403Forbidden;
-            context.Response.WriteAsJsonAsync(new ApiError { Message = "Origem não autorizada." }).GetAwaiter().GetResult();
+            await context.Response.WriteAsJsonAsync(new ApiError { Message = "Origem não autorizada." });
             return false;
         }
 
