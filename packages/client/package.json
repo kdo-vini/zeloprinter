@@ -1,0 +1,15 @@
+{
+  "name": "@zelo/impressao-client",
+  "version": "0.1.1",
+  "type": "module",
+  "description": "Cliente compartilhado para integração dos apps Zelo com o Zelo Impressão.",
+  "main": "src/index.js",
+  "types": "src/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.d.ts",
+      "default": "./src/index.js"
+    }
+  },
+  "sideEffects": false
+}

@@ -1,0 +1,188 @@
+# Distribuição do Zelo Impressão
+
+Este documento define **uma única fonte de verdade** para o download do instalador do `Zelo Impressão` e como `zelopdv` e `zelochat` devem consumi-la.
+
+## Objetivo
+
+Evitar que cada app mantenha seu próprio link hardcoded ou precise receber upload manual do instalador em vários lugares a cada release.
+
+## Fonte única de verdade
+
+A fonte única de verdade deve ser o **endpoint/URL pública estável do instalador**, não uma dependência local entre repositórios.
+
+O pacote compartilhado `@zelo/impressao-client` expõe as URLs oficiais de download dentro do workspace local, mas apps deployados isoladamente (por exemplo, um build de Vercel que sobe apenas o repositório `zelopdv`) **não podem depender de `file:../outro-repo/...`**.
+
+Na prática:
+
+- centralize o **artefato** em um path estável do próprio `zelopdv.com.br`
+- centralize a **página pública** em `zelopdv.com.br/zelo-impressao`
+- dentro de cada app, prefira consumir essas URLs por módulo local ou configuração própria quando o deploy for isolado
+- não assuma que `file:../zeloprinter/packages/client` existirá no ambiente de build
+
+Arquivos:
+
+- `packages/client/src/index.js`
+- `packages/client/src/index.d.ts`
+
+Exports principais:
+
+- `ZELO_IMPRESSAO_DOWNLOAD_PAGE_URL`
+- `ZELO_IMPRESSAO_DOWNLOADS_BASE_URL`
+- `ZELO_IMPRESSAO_INSTALLER_FILENAME`
+- `ZELO_IMPRESSAO_INSTALLER_DOWNLOAD_URL`
+- `getZeloImpressaoInstallerUrl(channel?)`
+- `getZeloImpressaoDownloadPageUrl()`
+
+## URLs oficiais
+
+### Página pública
+
+- `https://zelopdv.com.br/zelo-impressao`
+
+Uso:
+
+- onboarding
+- FAQ
+- suporte
+- CTA nos apps
+- página com instruções de instalação
+
+### Instalador estável
+
+- `https://zelopdv.com.br/downloads/zelo-impressao/latest/Zelo-Impressao-Setup.exe`
+
+Uso:
+
+- botão direto de download
+- links dentro do PDV
+- links dentro do Chat
+- automações de suporte
+
+### Releases versionadas
+
+Padrão previsto:
+
+- `https://zelopdv.com.br/downloads/zelo-impressao/<versao>/Zelo-Impressao-Setup.exe`
+
+Exemplo:
+
+- `https://zelopdv.com.br/downloads/zelo-impressao/0.1.0/Zelo-Impressao-Setup.exe`
+
+O helper `getZeloImpressaoInstallerUrl('0.1.0')` monta esse formato automaticamente.
+
+## Fluxo de versionamento recomendado
+
+Antes de publicar uma nova release:
+
+1. Escolha o tipo de versão:
+   - `npm run version:bump:patch`
+   - `npm run version:bump:minor`
+   - `npm run version:bump:major`
+2. Se precisar definir manualmente:
+   - `npm run version:set -- 0.1.1`
+3. Confirme que os arquivos foram sincronizados:
+   - `npm run version:sync`
+
+O `package.json` do `zeloprinter` é a fonte de verdade, e os scripts sincronizam automaticamente os demais pontos de versão do app local.
+
+## Fluxo de publicação recomendado
+
+1. Gerar o executável self-contained:
+   - `powershell -ExecutionPolicy Bypass -File .\native\build\Build-Windows.ps1`
+2. Gerar o instalador:
+   - `iscc .\native\installer\ZeloImpressao.iss`
+3. Publicar o arquivo em:
+   - `zelopdv.com.br/downloads/zelo-impressao/<versao>/Zelo-Impressao-Setup.exe`
+4. Atualizar o alias/cópia estável em:
+   - `zelopdv.com.br/downloads/zelo-impressao/latest/Zelo-Impressao-Setup.exe`
+5. Se necessário, atualizar a página:
+   - `https://zelopdv.com.br/zelo-impressao`
+
+## Regra prática para futuras atualizações
+
+Quando sair uma nova versão do app local:
+
+- faça upload **uma vez** no storage central
+- atualize o arquivo/alias `latest`
+- **não** altere links em `zelopdv` nem em `zelochat`
+
+Se os apps estiverem importando as constantes do pacote compartilhado, eles já continuarão apontando para o mesmo lugar.
+
+## Onde cada produto deve usar esses links
+
+### Zelo PDV
+
+Usar na área de integrações para:
+
+- botão `Baixar para Windows`
+- link `Ver instruções`
+- fallback quando o app local não estiver instalado
+
+### ZeloChat
+
+Usar em:
+
+- botão `Conectar impressora`
+- estado `Zelo Impressão offline`
+- modal de conexão de impressora
+- onboarding/FAQ quando necessário
+
+## Regra de UX
+
+Prioridade de comunicação:
+
+1. **Zelo Impressão (recomendado)**
+2. WebUSB como opção avançada
+3. impressão pelo navegador como fallback
+
+## CORS / origens autorizadas
+
+Para os apps web se comunicarem com o serviço local em `http://127.0.0.1:17321`, as origens precisam estar liberadas no `zeloprinter`.
+
+Arquivos relevantes:
+
+- `src/constants.ts`
+- `native/ZeloImpressao/AppConstants.cs`
+
+Origem adicionada neste trabalho:
+
+- `https://chat.zelopdv.com.br`
+
+## Observações operacionais
+
+### Assinatura de código
+
+Para reduzir alertas do Windows SmartScreen, o ideal é assinar digitalmente o instalador `.exe` antes da distribuição pública.
+
+### Compatibilidade
+
+O instalador atual é voltado para:
+
+- Windows 10/11
+- arquitetura `x64`
+
+### Nome do arquivo
+
+Manter um nome estável ajuda suporte e documentação:
+
+- `Zelo-Impressao-Setup.exe`
+
+Se a release versionada tiver outro nome no pipeline, o storage/CDN deve publicar uma cópia/alias com esse nome na pasta `latest`.
+
+## Exemplo de consumo
+
+```ts
+import {
+  ZELO_IMPRESSAO_INSTALLER_DOWNLOAD_URL,
+  getZeloImpressaoDownloadPageUrl,
+} from '@zelo/impressao-client';
+```
+
+## Resumo
+
+A partir daqui:
+
+- o link do instalador fica centralizado no pacote compartilhado
+- `zelopdv` e `zelochat` não precisam manter URLs próprias
+- uma nova release exige upload em **um único local**
+- `chat.zelopdv.com.br` passa a ser origem permitida para integração com o app local

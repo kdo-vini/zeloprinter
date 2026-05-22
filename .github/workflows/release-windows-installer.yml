@@ -1,0 +1,66 @@
+name: Release Windows Installer
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows-installer:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Install Inno Setup
+        shell: powershell
+        run: choco install innosetup --no-progress -y
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Sync version
+        run: npm run version:sync
+
+      - name: Publish native Windows app
+        run: npm run dotnet:publish:win
+
+      - name: Build installer
+        shell: powershell
+        run: iscc .\native\installer\ZeloImpressao.iss
+
+      - name: Create stable installer alias
+        shell: powershell
+        run: |
+          $version = node -p "require('./package.json').version"
+          Copy-Item "release\installer\Zelo-Impressao-$version-Setup.exe" "release\installer\Zelo-Impressao-Setup.exe" -Force
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: zelo-impressao-windows-installer
+          path: |
+            release/installer/Zelo-Impressao-*-Setup.exe
+
+      - name: Publish GitHub release assets
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            release/installer/Zelo-Impressao-*-Setup.exe

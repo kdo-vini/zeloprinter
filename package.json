@@ -1,0 +1,62 @@
+{
+  "name": "zelo-impressao",
+  "version": "0.1.1",
+  "private": true,
+  "author": "Téchne Sistemas",
+  "description": "Componente local do Zelo para impressão automática de comprovantes, pedidos e comandas.",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/kdo-vini/zeloprinter.git"
+  },
+  "main": "dist/main.js",
+  "type": "module",
+  "scripts": {
+    "dev": "npm run electron:build && electron . -- --show",
+    "build": "npm run electron:build",
+    "start": "electron .",
+    "pack:win": "npm run dotnet:publish:win && iscc .\\native\\installer\\ZeloImpressao.iss",
+    "electron:build": "npm run version:sync && tsc -p tsconfig.json",
+    "electron:pack:win": "npm run electron:build && electron-builder --win nsis",
+    "dotnet:publish:win": "npm run version:sync && powershell -ExecutionPolicy Bypass -File ./native/build/Build-Windows.ps1",
+    "lint": "tsc -p tsconfig.json --noEmit",
+    "version:sync": "node ./scripts/version-manager.mjs sync",
+    "version:set": "node ./scripts/version-manager.mjs set",
+    "version:bump:patch": "node ./scripts/version-manager.mjs bump patch",
+    "version:bump:minor": "node ./scripts/version-manager.mjs bump minor",
+    "version:bump:major": "node ./scripts/version-manager.mjs bump major"
+  },
+  "dependencies": {
+    "electron-store": "^10.0.1",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@types/node": "^22.14.0",
+    "electron": "^38.4.0",
+    "electron-builder": "^26.0.12",
+    "tsx": "^4.21.0",
+    "typescript": "^5.8.2"
+  },
+  "build": {
+    "appId": "br.com.techne.zeloimpressao",
+    "productName": "Zelo Impressão",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "src/renderer/settings.html",
+      "package.json"
+    ],
+    "win": {
+      "target": "nsis",
+      "artifactName": "Zelo-Impressao-${version}-Setup.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    }
+  }
+}
