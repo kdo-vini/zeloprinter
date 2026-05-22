@@ -35,7 +35,7 @@ iscc .\native\installer\ZeloImpressao.iss
 Saída:
 
 ```text
-release\installer\Zelo-Impressao-0.1.2-Setup.exe
+release\installer\Zelo-Impressao-0.1.3-Setup.exe
 ```
 
 ## Versionamento

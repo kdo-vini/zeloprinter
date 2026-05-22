@@ -4,7 +4,7 @@ internal static class AppConstants
 {
     public const string ProductName = "Zelo Impressão";
     public const string ProductDescription = "Componente local do Zelo para impressão automática de comprovantes, pedidos e comandas.";
-    public const string Version = "0.1.2";
+    public const string Version = "0.1.3";
     public const string ApiHost = "127.0.0.1";
     public const int ApiPort = 17321;
     public const int MaxJsonBytes = 512 * 1024;
