@@ -18,11 +18,13 @@ Na prática:
 - centralize a **página pública** em `zelopdv.com.br/zelo-impressao`
 - dentro de cada app, prefira consumir essas URLs por módulo local ou configuração própria quando o deploy for isolado
 - não assuma que `file:../zeloprinter/packages/client` existirá no ambiente de build
+- quando quiser o menor atrito possível, prefira um SDK browser estável em vez de path local entre repositórios
 
 Arquivos:
 
 - `packages/client/src/index.js`
 - `packages/client/src/index.d.ts`
+- `packages/client/src/browser.js`
 
 Exports principais:
 
@@ -30,8 +32,10 @@ Exports principais:
 - `ZELO_IMPRESSAO_DOWNLOADS_BASE_URL`
 - `ZELO_IMPRESSAO_INSTALLER_FILENAME`
 - `ZELO_IMPRESSAO_INSTALLER_DOWNLOAD_URL`
+- `ZELO_IMPRESSAO_BROWSER_SDK_URL`
 - `getZeloImpressaoInstallerUrl(channel?)`
 - `getZeloImpressaoDownloadPageUrl()`
+- `getZeloImpressaoBrowserSdkUrl()`
 
 ## URLs oficiais
 
@@ -57,6 +61,16 @@ Uso:
 - links dentro do PDV
 - links dentro do Chat
 - automações de suporte
+
+### SDK browser estável
+
+- `https://zelopdv.com.br/downloads/zelo-impressao/sdk/zelo-impressao-client.browser.js`
+
+Uso:
+
+- integração rápida sem dependência local entre repositórios
+- páginas estáticas ou apps com baixo atrito de build
+- fallback quando não fizer sentido publicar `@zelo/impressao-client` em registry
 
 ### Releases versionadas
 
@@ -186,3 +200,4 @@ A partir daqui:
 - `zelopdv` e `zelochat` não precisam manter URLs próprias
 - uma nova release exige upload em **um único local**
 - `chat.zelopdv.com.br` passa a ser origem permitida para integração com o app local
+- apps web também podem consumir um SDK browser estável, sem `file:../...`

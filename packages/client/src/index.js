@@ -8,6 +8,8 @@ export const ZELO_IMPRESSAO_DOWNLOADS_BASE_URL =
   "https://zelopdv.com.br/downloads/zelo-impressao";
 export const ZELO_IMPRESSAO_INSTALLER_FILENAME = "Zelo-Impressao-Setup.exe";
 export const ZELO_IMPRESSAO_INSTALLER_DOWNLOAD_URL = `${ZELO_IMPRESSAO_DOWNLOADS_BASE_URL}/latest/${ZELO_IMPRESSAO_INSTALLER_FILENAME}`;
+export const ZELO_IMPRESSAO_BROWSER_SDK_URL =
+  `${ZELO_IMPRESSAO_DOWNLOADS_BASE_URL}/sdk/zelo-impressao-client.browser.js`;
 
 export const ZELO_IMPRESSAO_UNAVAILABLE_MESSAGE =
   "O Zelo Impressão não está aberto neste computador. Abra o aplicativo ou use a impressão pelo navegador.";
@@ -29,6 +31,10 @@ export function getZeloImpressaoInstallerUrl(channel = "latest") {
 
 export function getZeloImpressaoDownloadPageUrl() {
   return ZELO_IMPRESSAO_DOWNLOAD_PAGE_URL;
+}
+
+export function getZeloImpressaoBrowserSdkUrl() {
+  return ZELO_IMPRESSAO_BROWSER_SDK_URL;
 }
 
 function getStoredToken() {

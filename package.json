@@ -19,6 +19,7 @@
     "electron:pack:win": "npm run electron:build && electron-builder --win nsis",
     "dotnet:publish:win": "npm run version:sync && powershell -ExecutionPolicy Bypass -File ./native/build/Build-Windows.ps1",
     "lint": "tsc -p tsconfig.json --noEmit",
+    "sdk:prepare": "node ./scripts/prepare-browser-sdk.mjs",
     "version:sync": "node ./scripts/version-manager.mjs sync",
     "version:set": "node ./scripts/version-manager.mjs set",
     "version:bump:patch": "node ./scripts/version-manager.mjs bump patch",

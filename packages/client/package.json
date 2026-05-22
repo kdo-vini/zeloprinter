@@ -9,6 +9,9 @@
     ".": {
       "types": "./src/index.d.ts",
       "default": "./src/index.js"
+    },
+    "./browser": {
+      "default": "./src/browser.js"
     }
   },
   "sideEffects": false

@@ -2,6 +2,7 @@ export const ZELO_IMPRESSAO_DOWNLOAD_PAGE_URL: string;
 export const ZELO_IMPRESSAO_DOWNLOADS_BASE_URL: string;
 export const ZELO_IMPRESSAO_INSTALLER_FILENAME: string;
 export const ZELO_IMPRESSAO_INSTALLER_DOWNLOAD_URL: string;
+export const ZELO_IMPRESSAO_BROWSER_SDK_URL: string;
 export const ZELO_IMPRESSAO_UNAVAILABLE_MESSAGE: string;
 export const ZELO_IMPRESSAO_PRINTER_UNAVAILABLE_MESSAGE: string;
 
@@ -38,6 +39,7 @@ export interface ZeloImpressaoPrintJob {
 
 export function getZeloImpressaoInstallerUrl(channel?: string): string;
 export function getZeloImpressaoDownloadPageUrl(): string;
+export function getZeloImpressaoBrowserSdkUrl(): string;
 export function detectZeloImpressao(
   options?: Record<string, unknown>,
 ): Promise<{
