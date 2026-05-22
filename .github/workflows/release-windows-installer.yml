@@ -48,8 +48,8 @@ jobs:
       - name: Create stable installer alias
         shell: powershell
         run: |
-          $version = node -p "require('./package.json').version"
-          Copy-Item "release\installer\Zelo-Impressao-$version-Setup.exe" "release\installer\Zelo-Impressao-Setup.exe" -Force
+          $version = (node -p "require('./package.json').version").Trim()
+          Copy-Item "release/installer/Zelo-Impressao-$version-Setup.exe" "release/installer/Zelo-Impressao-Setup.exe" -Force
 
       - name: Upload workflow artifact
         uses: actions/upload-artifact@v4
@@ -63,4 +63,6 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: |
+            release/installer/Zelo-Impressao-Setup.exe
             release/installer/Zelo-Impressao-*-Setup.exe
+
