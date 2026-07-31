@@ -88,7 +88,7 @@ internal sealed class LocalApiServer
                     heapUsedMb = Math.Round(GC.GetTotalMemory(false) / 1024d / 1024d)
                 },
                 pairingRequired = cfg.RequirePairing,
-                paired = !string.IsNullOrWhiteSpace(cfg.TokenHash),
+                paired = cfg.TokenHashes.Count > 0,
                 capabilities = new
                 {
                     rawEscpos = true,
@@ -108,6 +108,27 @@ internal sealed class LocalApiServer
             return token is null
                 ? Results.Json(new ApiError { Message = "Código de pareamento inválido ou expirado." }, statusCode: 401)
                 : Results.Json(new { ok = true, token });
+        });
+
+        app.MapPost("/connect", (HttpContext context) =>
+        {
+            var origin = context.Request.Headers.Origin.ToString();
+            if (!AppConstants.AutoConnectOrigins.Contains(origin, StringComparer.OrdinalIgnoreCase))
+            {
+                return Results.Json(
+                    new ApiError
+                    {
+                        Code = string.IsNullOrWhiteSpace(origin)
+                            ? "AUTO_CONNECT_ORIGIN_REQUIRED"
+                            : "AUTO_CONNECT_NOT_ALLOWED",
+                        Message = "Esta origem não pode fazer conexão automática. Use o código de pareamento."
+                    },
+                    statusCode: 403
+                );
+            }
+
+            var token = _configStore.IssueToken();
+            return Results.Json(new { ok = true, token });
         });
 
         app.MapGet("/printers", (HttpContext context) =>

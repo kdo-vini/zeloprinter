@@ -1,5 +1,5 @@
 #define MyAppName "Zelo Impressão"
-#define MyAppVersion "0.1.3"
+#define MyAppVersion "0.1.4"
 #define MyAppPublisher "Téchne Sistemas"
 #define MyAppExeName "ZeloImpressao.exe"
 #define PublishDir "..\..\release\dotnet\win-x64"

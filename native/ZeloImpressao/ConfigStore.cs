@@ -63,7 +63,14 @@ internal sealed class ConfigStore
             .TrimEnd('=');
         lock (_lock)
         {
-            _config.TokenHash = HashToken(token);
+            NormalizeTokenHashes(_config);
+            while (_config.TokenHashes.Count >= AgentConfig.MaxTokenCount)
+            {
+                _config.TokenHashes.RemoveAt(0);
+            }
+
+            _config.TokenHashes.Add(HashToken(token));
+            _config.TokenHash = null;
             Save(_config);
         }
         return token;
@@ -73,10 +80,14 @@ internal sealed class ConfigStore
     {
         var cfg = Get();
         if (!cfg.RequirePairing) return true;
-        if (string.IsNullOrWhiteSpace(cfg.TokenHash) || string.IsNullOrWhiteSpace(token)) return false;
-        return CryptographicOperations.FixedTimeEquals(
-            Encoding.UTF8.GetBytes(cfg.TokenHash),
-            Encoding.UTF8.GetBytes(HashToken(token))
+        if (string.IsNullOrWhiteSpace(token)) return false;
+
+        var tokenBytes = Encoding.UTF8.GetBytes(HashToken(token));
+        return cfg.TokenHashes.Any(tokenHash =>
+            CryptographicOperations.FixedTimeEquals(
+                Encoding.UTF8.GetBytes(tokenHash),
+                tokenBytes
+            )
         );
     }
 
@@ -110,7 +121,20 @@ internal sealed class ConfigStore
         {
             if (!File.Exists(_configPath)) return new AgentConfig();
             var config = JsonSerializer.Deserialize<AgentConfig>(File.ReadAllText(_configPath, Encoding.UTF8)) ?? new AgentConfig();
-            return Normalize(config);
+            var hadLegacyToken = !string.IsNullOrWhiteSpace(config.TokenHash);
+            var normalized = Normalize(config);
+            if (hadLegacyToken)
+            {
+                try
+                {
+                    Save(normalized);
+                }
+                catch
+                {
+                    // The in-memory migration is enough to keep the old token valid.
+                }
+            }
+            return normalized;
         }
         catch
         {
@@ -133,6 +157,7 @@ internal sealed class ConfigStore
             StartWithWindows = config.StartWithWindows,
             RequirePairing = config.RequirePairing,
             TokenHash = config.TokenHash,
+            TokenHashes = config.TokenHashes.ToList(),
             AllowedOrigins = config.AllowedOrigins.ToList()
         };
     }
@@ -151,6 +176,8 @@ internal sealed class ConfigStore
 
     private static AgentConfig Normalize(AgentConfig config)
     {
+        NormalizeTokenHashes(config);
+
         config.AllowedOrigins = config.AllowedOrigins?
             .Where(origin => !string.IsNullOrWhiteSpace(origin))
             .Distinct(StringComparer.OrdinalIgnoreCase)
@@ -163,6 +190,30 @@ internal sealed class ConfigStore
         }
 
         return config;
+    }
+
+    private static void NormalizeTokenHashes(AgentConfig config)
+    {
+        var hashes = new List<string>();
+        if (!string.IsNullOrWhiteSpace(config.TokenHash))
+        {
+            hashes.Add(config.TokenHash);
+        }
+
+        if (config.TokenHashes is not null)
+        {
+            hashes.AddRange(config.TokenHashes);
+        }
+
+        config.TokenHashes = hashes
+            .Where(hash => !string.IsNullOrWhiteSpace(hash))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .TakeLast(AgentConfig.MaxTokenCount)
+            .ToList();
+
+        // The legacy single hash has now been copied into TokenHashes. Keeping
+        // it null prevents old and new storage formats from drifting apart.
+        config.TokenHash = null;
     }
 
     private static void ApplyStartup(bool enabled)

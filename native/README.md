@@ -35,7 +35,7 @@ iscc .\native\installer\ZeloImpressao.iss
 Saída:
 
 ```text
-release\installer\Zelo-Impressao-0.1.3-Setup.exe
+release\installer\Zelo-Impressao-0.1.4-Setup.exe
 ```
 
 ## Versionamento
@@ -84,8 +84,10 @@ Em resumo:
 - Instalar em Windows limpo.
 - Confirmar que o app abre no tray sem janela obrigatória.
 - Confirmar inicialização com Windows.
-- Confirmar `/health`, `/printers`, `/config`, `/test-print`.
-- Parear PDV e ZeloChat por código.
+- Confirmar `/health`, `/connect`, `/pair`, `/printers`, `/config`, `/test-print`.
+- Confirmar auto-connect do PDV e do ZeloChat em origens oficiais.
+- Confirmar pareamento por código para uma origem de terceiro.
+- Confirmar que PDV e ZeloChat permanecem conectados simultaneamente.
 - Testar impressora térmica USB instalada no Windows.
 - Testar impressora de rede.
 - Testar erro com impressora desligada.

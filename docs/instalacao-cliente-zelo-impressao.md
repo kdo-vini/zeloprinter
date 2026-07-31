@@ -10,7 +10,6 @@ Fale sempre de forma simples:
 
 - "baixe o arquivo"
 - "abra o programa"
-- "digite o código que aparece na tela"
 - "escolha a impressora"
 - "faça o teste"
 
@@ -32,9 +31,9 @@ Evite termos como:
 5. Quando a instalação terminar, peça para abrir o Zelo Impressão.
 6. Explique que, se a janela fechar, o programa continua aberto no ícone perto do relógio do Windows.
 7. Peça para voltar ao Zelo PDV ou ao ZeloChat.
-8. Na parte de impressão, o cliente deve digitar o código de 6 números que aparece na tela do Zelo Impressão.
-9. Depois disso, ele deve escolher a impressora correta.
-10. Por fim, deve clicar para fazer o teste de impressão.
+8. Volte ao Zelo PDV ou ao ZeloChat. O sistema deve encontrar o Zelo Impressão e conectar sozinho.
+9. Na primeira configuração, escolha a impressora correta.
+10. Por fim, clique para fazer o teste de impressão.
 
 ## Frases prontas
 
@@ -48,7 +47,11 @@ Evite termos como:
 
 ### Se o cliente já abriu o programa
 
-"Perfeito. Agora volte ao PDV, clique em conectar impressora, digite o código que aparece na tela e depois escolha a sua impressora."
+"Perfeito. Agora volte ao PDV ou ao Chat. Ele deve encontrar o Zelo Impressão sozinho. Depois é só escolher a impressora e fazer o teste."
+
+Se a conexão automática não acontecer:
+
+"Sem problema. Clique em conectar impressora. Se o sistema pedir, digite o código que aparece no Zelo Impressão e continue escolhendo a sua impressora."
 
 ### Se o cliente pergunta se precisa de ajuda técnica
 
@@ -57,7 +60,7 @@ Evite termos como:
 ## O que o cliente precisa confirmar no final
 
 - o Zelo Impressão ficou aberto no computador
-- o código foi digitado
+- o PDV ou o Chat mostrou que o Zelo Impressão está conectado
 - a impressora foi escolhida
 - o teste saiu na impressora certa
 

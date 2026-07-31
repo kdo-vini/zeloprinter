@@ -20,7 +20,7 @@ Tarefas:
 2. Atualize `src/services/printerService.ts`:
 
 - remover dependência primária de WebUSB;
-- usar `detectZeloImpressao`, `sendPrintJob`, `sendTestPrint`, `pairZeloImpressao` e `fallbackToBrowserPrint`;
+- usar `detectZeloImpressao`, `connectZeloImpressao`, `sendPrintJob`, `sendTestPrint`, `pairZeloImpressao` e `fallbackToBrowserPrint`;
 - manter builders simples de texto para pedido e relatório do dia;
 - enviar pedido com:
   - `source: "zelochat"`;
@@ -32,7 +32,8 @@ Tarefas:
 
 - preservar a API pública esperada pelos componentes (`supported`, `connected`, `printing`, `deviceName`, `error`, `connect`, `disconnect`, `print`, `printDay`);
 - adicionar `pair(code)` se necessário para UI;
-- `connect()` deve detectar status do Zelo Impressão;
+- `connect()` deve detectar status do Zelo Impressão e aproveitar o auto-connect padrão;
+- só mostrar pareamento por código quando o auto-connect não for permitido ou falhar;
 - `print(order)` deve lançar erro amigável, mas o caller não deve bloquear pedido.
 
 4. Atualize `src/components/PrinterButton.tsx`:

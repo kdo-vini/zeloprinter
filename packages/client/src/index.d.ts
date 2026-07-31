@@ -37,22 +37,33 @@ export interface ZeloImpressaoPrintJob {
   metadata?: Record<string, unknown>;
 }
 
+export interface ZeloImpressaoClientOptions extends Record<string, unknown> {
+  baseUrl?: string;
+  timeoutMs?: number;
+  autoConnect?: boolean;
+}
+
 export function getZeloImpressaoInstallerUrl(channel?: string): string;
 export function getZeloImpressaoDownloadPageUrl(): string;
 export function getZeloImpressaoBrowserSdkUrl(): string;
 export function detectZeloImpressao(
-  options?: Record<string, unknown>,
+  options?: ZeloImpressaoClientOptions,
 ): Promise<{
   installed: boolean;
   running: boolean;
   paired: boolean;
+  autoConnected?: boolean;
   health?: unknown;
   error?: unknown;
+  autoConnectError?: unknown;
   message?: string;
 }>;
+export function connectZeloImpressao(
+  options?: ZeloImpressaoClientOptions,
+): Promise<unknown>;
 export function pairZeloImpressao(
   code: string,
-  options?: Record<string, unknown>,
+  options?: ZeloImpressaoClientOptions,
 ): Promise<unknown>;
 export function getPrinters(
   options?: Record<string, unknown>,

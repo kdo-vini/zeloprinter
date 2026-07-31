@@ -124,14 +124,33 @@ function friendlyMessage(message) {
 }
 
 export async function detectZeloImpressao(options = {}) {
+  const config = options || {};
   try {
-    const health = await request("/health", { ...options, token: "" });
-    const hasToken = !!getStoredToken();
+    const health = await request("/health", { ...config, token: "" });
+    let hasToken = !!getStoredToken();
+    let autoConnected = false;
+    let autoConnectError;
+
+    if (health.pairingRequired && !hasToken && config.autoConnect !== false) {
+      try {
+        const connection = await connectZeloImpressao(config);
+        hasToken = !!connection?.token && !!getStoredToken();
+        autoConnected = hasToken;
+        if (!hasToken) {
+          throw new Error("O Zelo Impressão não retornou uma sessão válida.");
+        }
+      } catch (error) {
+        autoConnectError = error;
+      }
+    }
+
     return {
       installed: true,
       running: true,
-      paired: !health.pairingRequired || (!!health.paired && hasToken),
+      paired: !health.pairingRequired || hasToken,
+      autoConnected,
       health,
+      ...(autoConnectError ? { autoConnectError, error: autoConnectError } : {}),
     };
   } catch (error) {
     return {
@@ -142,6 +161,16 @@ export async function detectZeloImpressao(options = {}) {
       message: ZELO_IMPRESSAO_UNAVAILABLE_MESSAGE,
     };
   }
+}
+
+export async function connectZeloImpressao(options = {}) {
+  const response = await request("/connect", {
+    ...options,
+    method: "POST",
+    token: "",
+  });
+  if (response.token) setStoredToken(response.token);
+  return response;
 }
 
 export async function pairZeloImpressao(code, options = {}) {

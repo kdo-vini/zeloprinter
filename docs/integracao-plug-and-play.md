@@ -4,12 +4,18 @@ Este documento resume o caminho de menor atrito para integrar `zelopdv`, `zeloch
 
 ## Verdade prática
 
-Hoje não existe integração realmente sem código nos apps web.
+Para as origens oficiais do ZeloPDV e do ZeloChat, o SDK faz a conexão
+automaticamente depois que o Zelo Impressão está instalado e aberto. O usuário
+não precisa digitar código nesse caminho.
 
-Sempre será necessário pelo menos:
+O código continua disponível para integrações de terceiros ou quando o app
+desativa explicitamente o comportamento com `autoConnect: false`.
+
+Todo app integrado precisa:
 
 - detectar se o app local está aberto;
-- disparar o pareamento por código;
+- tentar a conexão automática quando a origem for oficial;
+- manter pareamento por código como fallback;
 - enviar o job de impressão;
 - mostrar fallback amigável quando o app local não estiver disponível.
 
@@ -27,6 +33,7 @@ Use quando o app já tem build com npm, Vite, React ou SvelteKit.
 ```ts
 import {
   detectZeloImpressao,
+  connectZeloImpressao,
   pairZeloImpressao,
   sendPrintJob,
   sendRawEscposPrintJob,
@@ -91,6 +98,10 @@ Exemplo mínimo:
       );
     }
 
+    if (!status.paired) {
+      throw new Error("Conecte o Zelo Impressão para continuar.");
+    }
+
     await zelo.sendPrintJob({
       source: "zelochat",
       type: "kitchen_order",
@@ -110,10 +121,11 @@ Exemplo mínimo:
    - botão `Baixar para Windows`
    - link `Ver instruções`
    - fallback manual pelo navegador
-3. Se estiver online mas sem token, pedir código de pareamento.
-4. Salvar impressora selecionada uma única vez.
-5. Nos fluxos automáticos, tentar `Zelo Impressão` primeiro.
-6. Se falhar:
+3. Se estiver online e a origem for oficial, o SDK chama `POST /connect` automaticamente.
+4. Se a conexão automática não for permitida ou estiver desativada, pedir o código de pareamento.
+5. Salvar a impressora selecionada uma única vez.
+6. Nos fluxos automáticos, tentar `Zelo Impressão` primeiro.
+7. Se falhar:
    - `zelopdv`: seguir venda e cair para browser print;
    - `zelochat`: seguir pedido e avisar operador.
 
@@ -122,7 +134,7 @@ Exemplo mínimo:
 Mesmo no modo mais plug and play, `zelochat` e `zelopdv` ainda precisam manter:
 
 - um ponto de integração para disparar impressão;
-- UI de status e pareamento;
+- UI de status e fallback de pareamento;
 - CTA de download;
 - tratamento de erro amigável;
 - fallback de impressão pelo navegador.

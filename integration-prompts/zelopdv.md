@@ -31,7 +31,8 @@ Tarefas:
 
 - adicionar card "Impressão automática";
 - mostrar status: conectado, não instalado ou desconectado;
-- permitir pareamento com código via `pairZeloImpressao(code)`;
+- ao detectar o agente, usar `detectZeloImpressao()` com auto-connect habilitado por padrão;
+- manter pareamento com código via `pairZeloImpressao(code)` apenas como fallback;
 - listar impressoras com `getPrinters()`;
 - salvar impressora selecionada com `saveConfig()`;
 - botão "Imprimir teste" usando `sendTestPrint()`;
@@ -43,6 +44,7 @@ Tarefas:
 - usar texto: "O Zelo Impressão não está aberto neste computador. Abra o aplicativo ou use a impressão pelo navegador.";
 - se impressora falhar, usar: "Não conseguimos acessar a impressora selecionada. Verifique se ela está ligada e conectada.";
 - checkout/venda deve seguir mesmo sem impressão automática.
+- não mostrar o campo de código para origens oficiais quando o auto-connect funcionar;
 
 5. Verificação:
 

@@ -4,11 +4,15 @@ namespace ZeloImpressao;
 
 internal sealed class AgentConfig
 {
+    public const int MaxTokenCount = 50;
+
     public string? SelectedPrinterId { get; set; }
     public string? SelectedPrinterName { get; set; }
     public bool StartWithWindows { get; set; } = true;
     public bool RequirePairing { get; set; } = true;
+    // Kept so existing config.json files can be read and migrated in memory.
     public string? TokenHash { get; set; }
+    public List<string> TokenHashes { get; set; } = [];
     public List<string> AllowedOrigins { get; set; } = AppConstants.DefaultAllowedOrigins.ToList();
 }
 

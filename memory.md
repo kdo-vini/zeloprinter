@@ -9,13 +9,14 @@ Decisão atual de tecnologia: a implementação definitiva deve ser .NET nativo 
 Fluxo prioritário:
 
 1. Zelo PDV ou ZeloChat chama o SDK compartilhado `@zelo/impressao-client`.
-2. O SDK envia o job para `http://127.0.0.1:17321`.
-3. Zelo Impressão valida origem, token, tamanho e schema do payload.
-4. O componente resolve a impressora selecionada ou a padrão do Windows.
-5. Impressão na versão .NET:
+2. O SDK detecta `GET /health` e, para origens oficiais, chama `POST /connect` automaticamente.
+3. O SDK envia o job para `http://127.0.0.1:17321` usando o token salvo no navegador.
+4. Zelo Impressão valida origem, token, tamanho e schema do payload.
+5. O componente resolve a impressora selecionada ou a padrão do Windows.
+6. Impressão na versão .NET:
    - ESC/POS/raw: enviado ao spooler do Windows via `winspool.drv`.
    - Texto/HTML: impresso pelo driver do Windows via `PrintDocument` após normalização para texto.
-6. Se o componente local não estiver disponível, os apps mantêm fallback pelo navegador.
+7. Se o componente local não estiver disponível, os apps mantêm fallback pelo navegador.
 
 ## Contrato da API Local
 
@@ -24,6 +25,11 @@ Base URL: `http://127.0.0.1:17321`
 - `GET /health`
   - Público para detecção.
   - Retorna status, versão, OS, memória do processo, pareamento e capacidades.
+
+- `POST /connect`
+  - Público somente para origens oficiais e endereços de desenvolvimento autorizados.
+  - Emite um token independente para o navegador atual.
+  - Não exige código; origens de terceiros devem usar `/pair`.
 
 - `GET /printers`
   - Requer `X-Zelo-Impressao-Token`.
@@ -66,7 +72,7 @@ Mudança de comportamento: cada função tenta Zelo Impressão primeiro via `sen
 A tela `/perfil` ganhou o bloco "Impressão automática" para:
 
 - detectar status: conectado, não instalado ou desconectado;
-- parear com código;
+- conectar automaticamente e usar código somente como fallback;
 - listar impressoras do Windows;
 - salvar impressora selecionada;
 - enviar impressão de teste;
@@ -80,7 +86,7 @@ Arquivos principais:
 - `/home/vinicius/code/zelochat/src/hooks/usePrinter.ts`
 - `/home/vinicius/code/zelochat/src/components/PrinterButton.tsx`
 
-O hook `usePrinter()` preserva a API consumida pelo app, mas agora usa Zelo Impressão como backend local. O botão de impressão mostra status, erro amigável e campo de pareamento por código quando necessário.
+O hook `usePrinter()` preserva a API consumida pelo app, mas agora usa Zelo Impressão como backend local. O botão de impressão mostra status, tenta conexão automática e exibe o campo de pareamento por código somente quando necessário.
 
 Pedidos novos usam `POST /print` com `type: "kitchen_order"` e conteúdo em texto. Relatórios do dia tentam Zelo Impressão e, por serem acionados por clique do operador, podem cair para impressão pelo navegador se o componente local estiver indisponível.
 
@@ -106,7 +112,9 @@ Decisões implementadas:
 
 - API escuta somente em `127.0.0.1`.
 - CORS por allowlist para domínios Zelo e desenvolvimento local.
-- Token local por navegador via pareamento com código temporário.
+- Token local independente por navegador via conexão automática ou pareamento manual.
+- Até 50 hashes de token são mantidos; o hash único legado é migrado durante a leitura da configuração.
+- Auto-connect usa uma allowlist própria, separada da allowlist geral de CORS.
 - Endpoints sensíveis exigem `X-Zelo-Impressao-Token`.
 - Payload máximo de 512 KB.
 - Validação de schema com Zod.

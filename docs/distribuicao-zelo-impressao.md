@@ -36,6 +36,8 @@ Exports principais:
 - `getZeloImpressaoInstallerUrl(channel?)`
 - `getZeloImpressaoDownloadPageUrl()`
 - `getZeloImpressaoBrowserSdkUrl()`
+- `connectZeloImpressao(options?)`
+- `detectZeloImpressao({ autoConnect?: boolean })`
 
 ## URLs oficiais
 
@@ -149,6 +151,13 @@ Prioridade de comunicação:
 2. WebUSB como opção avançada
 3. impressão pelo navegador como fallback
 
+Depois que o Zelo Impressão estiver instalado e aberto:
+
+- ZeloPDV e ZeloChat tentam `POST /connect` automaticamente;
+- o SDK salva um token independente para cada navegador/origem;
+- o usuário só precisa escolher a impressora e fazer o primeiro teste;
+- integrações de terceiros continuam usando `POST /pair` com o código exibido no app.
+
 ## CORS / origens autorizadas
 
 Para os apps web se comunicarem com o serviço local em `http://127.0.0.1:17321`, as origens precisam estar liberadas no `zeloprinter`.
@@ -157,9 +166,24 @@ Arquivo relevante:
 
 - `native/ZeloImpressao/AppConstants.cs`
 
-Origem adicionada neste trabalho:
+As origens autorizadas para CORS e as origens autorizadas a criar uma sessão
+automaticamente são listas separadas em `AppConstants.cs`. Uma origem nova de
+CORS não ganha permissão de auto-connect por acidente.
 
+Origens oficiais com auto-connect:
+
+- `https://zelopdv.com.br`
+- `https://www.zelopdv.com.br`
+- `https://app.zelopdv.com.br`
 - `https://chat.zelopdv.com.br`
+- `https://zelochat.com.br`
+- `https://www.zelochat.com.br`
+- `https://app.zelochat.com.br`
+- endereços locais de desenvolvimento (`localhost` e `127.0.0.1` nas portas 3000 e 5173)
+
+O agente mantém até 50 tokens independentes. A instalação existente continua
+válida: o hash único antigo é migrado para a nova coleção na leitura da
+configuração.
 
 ## Observações operacionais
 

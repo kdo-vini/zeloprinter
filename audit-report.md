@@ -25,7 +25,7 @@ Criada implementação .NET nativa em `/home/vinicius/code/zeloprinter/native/Ze
 - Impressão por driver do Windows via `PrintDocument`.
 - Config local em `%APPDATA%\Zelo Impressao\config.json`.
 - Logs em pasta local do app.
-- Pareamento por código de 6 dígitos e token local.
+- Conexão automática para origens oficiais, pareamento por código para terceiros e tokens locais independentes.
 
 A implementação Electron anterior permanece no repositório como protótipo/legado do contrato, mas o caminho recomendado de produção é a versão .NET.
 
@@ -33,7 +33,7 @@ Criado SDK compartilhado:
 
 - `/home/vinicius/code/zeloprinter/packages/client`
 - Publicado localmente nos apps como `@zelo/impressao-client`.
-- Funções: `detectZeloImpressao`, `getPrinters`, `sendPrintJob`, `sendRawEscposPrintJob`, `sendTestPrint`, `fallbackToBrowserPrint`, `pairZeloImpressao`.
+- Funções: `detectZeloImpressao`, `connectZeloImpressao`, `getPrinters`, `sendPrintJob`, `sendRawEscposPrintJob`, `sendTestPrint`, `fallbackToBrowserPrint`, `pairZeloImpressao`.
 
 ## Arquivos afetados
 
@@ -76,7 +76,7 @@ ZeloChat:
 
 PDV mantém os mesmos call sites de impressão. `printService.js` agora tenta Zelo Impressão antes do fallback pelo navegador.
 
-ZeloChat mantém `usePrinter()` para `AppShell`, `CalendarView` e `PrinterButton`, mas o backend de impressão virou API local. O botão existente ganhou pareamento por código.
+ZeloChat mantém `usePrinter()` para `AppShell`, `CalendarView` e `PrinterButton`, mas o backend de impressão virou API local. O botão existente tenta conexão automática e mantém pareamento por código como fallback.
 
 ## Limitações
 
@@ -105,10 +105,10 @@ Teste manual recomendado no Windows:
 2. Confirmar que abre no tray e inicia com Windows.
 3. Medir RAM em idle com a janela fechada e comparar com `/health.memory.rssMb`.
 4. Abrir configurações, selecionar impressora instalada e enviar teste.
-5. Abrir Zelo PDV, parear por código, selecionar impressora e imprimir teste.
+5. Abrir Zelo PDV, confirmar auto-connect, selecionar impressora e imprimir teste.
 6. Registrar venda no PDV e confirmar impressão silenciosa.
 7. Desligar Zelo Impressão e confirmar fallback do PDV pelo navegador.
-8. Abrir ZeloChat, parear por código e criar pedido de teste.
+8. Abrir ZeloChat, confirmar auto-connect simultâneo e criar pedido de teste.
 9. Confirmar que falha de impressão automática mostra aviso sem bloquear pedido.
 10. Testar impressora USB térmica com driver Windows e, se aplicável, modo RAW.
 

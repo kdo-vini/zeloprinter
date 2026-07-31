@@ -1,6 +1,6 @@
 {
   "name": "zelo-impressao",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "private": true,
   "author": "Techne Sistemas",
   "description": "Componente local do Zelo para impressao automatica de comprovantes, pedidos e comandas.",
@@ -12,6 +12,7 @@
   "scripts": {
     "build": "npm run dotnet:build",
     "pack:win": "npm run dotnet:publish:win && iscc .\\native\\installer\\ZeloImpressao.iss",
+    "test": "node --test tests/client.test.mjs",
     "dotnet:build": "npm run version:sync && dotnet build .\\native\\ZeloImpressao\\ZeloImpressao.csproj -c Release",
     "dotnet:publish:win": "npm run version:sync && powershell -ExecutionPolicy Bypass -File ./native/build/Build-Windows.ps1",
     "sdk:prepare": "node ./scripts/prepare-browser-sdk.mjs",
