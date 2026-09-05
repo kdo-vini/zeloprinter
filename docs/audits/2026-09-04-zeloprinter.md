@@ -4,7 +4,9 @@
 
 Repositório: `C:\Users\Vinicius\Documents\code\zeloprinter`. A auditoria começou com checkout limpo em `71ec37c` (0.1.2). Na preparação da entrega foi descoberta divergência: `origin/main` e `v0.1.4` apontavam para `596eea5`, três commits à frente. O trabalho foi preservado em backup e stash, o checkout avançou por fast-forward e as mudanças foram conciliadas antes de reconstruir os artefatos. A afirmação inicial de que `/connect` não existia valia somente para o checkout antigo; **a conexão automática publicada na 0.1.4 foi preservada**.
 
-Versão preparada: **0.2.0**. Passam **38 testes JS e 33 cenários nativos**, também executados self-contained no **.NET 8.0.27**. Publish, SDK browser e instalador foram reconstruídos após a reconciliação e a correção final de revogação. Nenhum pedido real ou job de papel foi enviado. O coordenador revisou fila, journal e API; observações sobre falha incerta, troca segura, capacidade e revogação foram incorporadas. A entrega segue em branch de revisão, sem main/tag/release pública nesta etapa.
+Versão publicada: **0.2.0**, commit `e068ff8f6924551e5abb31d8731968fc93172404`, promovido pelo coordenador após revisão. Passam **38 testes JS e 33 cenários nativos**, também executados self-contained no **.NET 8.0.27**. Publish, SDK browser e instalador foram reconstruídos após a reconciliação e a correção final de revogação. Nenhum pedido real ou job de papel foi enviado. O coordenador revisou fila, journal e API; observações sobre falha incerta, troca segura, capacidade e revogação foram incorporadas. [Workflow da release aprovado](https://github.com/kdo-vini/zeloprinter/actions/runs/33933244243), [release pública v0.2.0](https://github.com/kdo-vini/zeloprinter/releases/tag/v0.2.0), publicada em 2026-09-05 00:34 UTC (2026-09-04 21:34 em São Paulo).
+
+**A coordenação durável exige atualizar o agente Windows para 0.2.0 e usar os clientes PDV/Chat compatíveis.** Atualizar somente os sites não adiciona dedupe ao agente antigo: o preflight recusa impressão automática sem as capacidades exigidas. A proteção vale para clientes que usam a mesma instalação/perfil Windows, owner e pedido canônicos, nos limites descritos abaixo.
 
 ## Inventário
 
@@ -88,7 +90,7 @@ A proteção é local a instalação/perfil Windows e por sete dias. Não coorde
 
 Testes usam diretórios/portas temporários, catálogo/delegate físico falsos, Kestrel HTTP, pipe real e bitmap. Cobrem três candidatos, segunda via, outro owner, reinício, timeout/abort, falhas seguras/incertas, fila/histórico cheios, corrupção/append parcial/expiração e tokens. Não alteram config/startup do usuário nem chamam spooler físico.
 
-A primeira execução do workflow na branch (`33932679489`) falhou antes dos testes: Node 20 no Windows não expande `tests/*.test.mjs`. O script passou a enumerar os dois arquivos explicitamente, mantendo o mesmo conjunto de testes. O workflow também foi alinhado ao Node 24 e checkout/setup-node v7 dos demais produtos. A validação remota do commit corrigido deve ser conferida antes da release.
+A primeira execução do workflow na branch (`33932679489`) falhou antes dos testes: Node 20 no Windows não expande `tests/*.test.mjs`. O script passou a enumerar os dois arquivos explicitamente, mantendo o mesmo conjunto de testes. O workflow também foi alinhado ao Node 24 e checkout/setup-node v7 dos demais produtos. O commit final passou na branch (`33932910059`) e na publicação da tag (`33933244243`).
 
 Benchmark: publicar `native/ZeloImpressao.Tests` self-contained com `-r win-x64`, executar `release/tests/ZeloImpressao.Tests.exe --benchmark`. Log `release/tests-runtime8-final-0.2.0.log`. Windows x64, .NET 8.0.27, host aquecido, 10 warmups e 500 health sequenciais; não mede browser, rede externa, tray cold start ou impressora física.
 
@@ -112,14 +114,18 @@ Inno estava ausente. Instalador oficial 6.7.3 conferido contra SHA256 do catálo
 
 Artefato reconstruído: `release/installer/Zelo-Impressao-0.2.0-Setup.exe`, **78.486.172 bytes**, SHA256 **`0D04B1CC03E9915CE5DA5DC248E8D09F3B384D700634336F8EFCA90D7A571D78`**. **NotSigned**: nenhum certificado fornecido. Não se copiou instalador antigo/live para simular build.
 
+Artefato público construído pelo CI: `Zelo-Impressao-0.2.0-Setup.exe` e alias `Zelo-Impressao-Setup.exe`, ambos **78.488.107 bytes**, SHA256 **`512a4c4a1db5be8faee85125192ef47c16cc6f6f0982f01766528c4a3be97305`**, confirmados nos metadados de assets do GitHub. O hash do build local acima continua sendo sua própria evidência de smoke; ele não é o hash do instalador distribuído.
+
 Smoke usa mesmo payload/config com AppId, mutex, Run e pasta próprios. Silencioso não abre app; uninstall remove binário. Evidência `release/installer-final-validation.json` e `release/installer-smoke-final-*.log`. Valida empacotamento/instalação isolada; **não valida upgrade operacional 0.1.4, Windows limpo, login/startup, SmartScreen ou térmica real**. Installer não força taskkill e preserva config/histórico na desinstalação.
+
+Inspeção local posterior à publicação, somente leitura: nenhum registro de instalação Zelo em HKCU/HKLM (incluindo 32 bits), nenhum processo Zelo e nenhum job em `Win32_PrintJob`. Binário ausente dos diretórios padrão. Existe configuração antiga em `%APPDATA%\Zelo Impressao` e entrada de inicialização `Zelo Impressao` apontando para o binário ausente em `%LOCALAPPDATA%\Programs\Zelo Impressao`. Essa entrada não foi alterada; nenhum instalador operacional foi executado. Uma eventual reinstalação deve preservar/revisar a configuração existente.
 
 ## Pendências reais
 
 1. Homologar térmica USB/rede com falta de papel, desconexão, erro parcial e desligamento, conferindo papel/fila Windows. Driver/corte e segunda via exigem teste físico.
-2. Revisar e autorizar publicação coordenada de nativo, SDKs embutidos e browser. A preparação 0.2.0 não é deploy; nenhum main/tag/release pública nesta etapa.
+2. Concluir atualização operacional dos agentes Windows e homologação dos clientes publicados em conjunto. A release 0.2.0 já está disponível; sua publicação não atualiza instalações existentes automaticamente.
 3. Assinar com certificado de distribuição, testar Windows limpo e upgrade 0.1.4 → 0.2.0 preservando config/tokens/journal, startup e janela via atalho.
 4. Validar Chrome/Edge/PWA, CSP e permissão de rede local publicados, sem desligar proteções globais. HTTP/CORS testados; navegador não usado nesta etapa. [Chrome Local Network Access](https://developer.chrome.com/blog/local-network-access).
 5. Medir RSS/WMI/spooler durante turno em máquina de balcão antes de decidir cache/isolamento. HTML continua texto extraído: não há fidelidade de imagens/tabelas/CSS; usar texto/RAW para cupons.
 
-ESM/IIFE mantêm implementações semelhantes cobertas pela mesma matriz. Não houve redesign, mudança comercial, impressão real ou publicação operacional pelo agente Printer.
+ESM/IIFE mantêm implementações semelhantes cobertas pela mesma matriz. Não houve redesign, mudança comercial ou impressão real. A publicação foi conduzida pelo coordenador; o agente Printer não instalou o programa operacional neste PC.
