@@ -88,6 +88,8 @@ A proteção é local a instalação/perfil Windows e por sete dias. Não coorde
 
 Testes usam diretórios/portas temporários, catálogo/delegate físico falsos, Kestrel HTTP, pipe real e bitmap. Cobrem três candidatos, segunda via, outro owner, reinício, timeout/abort, falhas seguras/incertas, fila/histórico cheios, corrupção/append parcial/expiração e tokens. Não alteram config/startup do usuário nem chamam spooler físico.
 
+A primeira execução do workflow na branch (`33932679489`) falhou antes dos testes: Node 20 no Windows não expande `tests/*.test.mjs`. O script passou a enumerar os dois arquivos explicitamente, mantendo o mesmo conjunto de testes. A validação remota do commit corrigido deve ser conferida no workflow antes da release.
+
 Benchmark: publicar `native/ZeloImpressao.Tests` self-contained com `-r win-x64`, executar `release/tests/ZeloImpressao.Tests.exe --benchmark`. Log `release/tests-runtime8-final-0.2.0.log`. Windows x64, .NET 8.0.27, host aquecido, 10 warmups e 500 health sequenciais; não mede browser, rede externa, tray cold start ou impressora física.
 
 | Métrica | Resultado |

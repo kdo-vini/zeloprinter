@@ -11,7 +11,7 @@
   "type": "module",
   "scripts": {
     "test": "npm run test:sdk && npm run test:native",
-    "test:sdk": "node --test tests/*.test.mjs",
+    "test:sdk": "node --test tests/client.test.mjs tests/version.test.mjs",
     "test:native": "dotnet run --project native/ZeloImpressao.Tests -c Release",
     "build": "npm run dotnet:build",
     "pack:win": "npm run dotnet:publish:win && iscc .\\native\\installer\\ZeloImpressao.iss",
