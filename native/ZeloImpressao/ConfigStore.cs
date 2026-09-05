@@ -11,18 +11,23 @@ internal sealed class ConfigStore
     private readonly string _dataDir;
     private readonly string _configPath;
     private readonly object _lock = new();
+    private readonly object _logLock = new();
+    internal const int MaxPairedBrowsers = 50;
     private AgentConfig _config;
+    private readonly bool _manageStartup;
 
-    public ConfigStore()
+    public ConfigStore(string? dataDir = null)
     {
-        _dataDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Zelo Impressao");
+        _manageStartup = dataDir is null;
+        _dataDir = dataDir ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Zelo Impressao");
         _configPath = Path.Combine(_dataDir, "config.json");
         Directory.CreateDirectory(_dataDir);
         _config = Load();
-        ApplyStartup(_config.StartWithWindows);
+        if (_manageStartup) ApplyStartup(_config.StartWithWindows);
     }
 
     public string DataDir => _dataDir;
+    public string? StartupError { get; private set; }
     public string LogsDir
     {
         get
@@ -45,17 +50,34 @@ internal sealed class ConfigStore
     {
         lock (_lock)
         {
-            if (patch.SelectedPrinterId is not null) _config.SelectedPrinterId = patch.SelectedPrinterId;
-            if (patch.SelectedPrinterName is not null) _config.SelectedPrinterName = patch.SelectedPrinterName;
-            if (patch.StartWithWindows.HasValue) _config.StartWithWindows = patch.StartWithWindows.Value;
-            if (patch.RequirePairing.HasValue) _config.RequirePairing = patch.RequirePairing.Value;
-            Save(_config);
-            ApplyStartup(_config.StartWithWindows);
+            var next = Clone(_config);
+            if (patch.SelectedPrinterId is not null) next.SelectedPrinterId = patch.SelectedPrinterId;
+            if (patch.SelectedPrinterName is not null) next.SelectedPrinterName = patch.SelectedPrinterName;
+            if (patch.StartWithWindows.HasValue) next.StartWithWindows = patch.StartWithWindows.Value;
+            if (patch.RequirePairing.HasValue) next.RequirePairing = patch.RequirePairing.Value;
+            if (patch.AutoConnectEnabled.HasValue) next.AutoConnectEnabled = patch.AutoConnectEnabled.Value;
+            if (patch.PreferredAutoPrintSource is not null)
+            {
+                if (patch.PreferredAutoPrintSource is not ("zelopdv" or "zelochat"))
+                    throw new PrintRequestException("Aplicativo preferido inválido.", "INVALID_CONFIG");
+                next.PreferredAutoPrintSource = patch.PreferredAutoPrintSource;
+            }
+            if (patch.PrintHistoryCapacity.HasValue)
+            {
+                if (patch.PrintHistoryCapacity < PrintJournal.MaxEntries || patch.PrintHistoryCapacity > PrintJournal.MaxCapacity)
+                    throw new PrintRequestException("Capacidade do histórico deve estar entre 10000 e 50000 registros.", "INVALID_CONFIG");
+                next.PrintHistoryCapacity = patch.PrintHistoryCapacity.Value;
+            }
+            Save(next);
+            _config = next;
+            if (_manageStartup) ApplyStartup(_config.StartWithWindows);
+            if (patch.StartWithWindows.HasValue && StartupError is not null)
+                throw new PrintRequestException(StartupError, "STARTUP_SETTING_FAILED", 503);
             return Clone(_config);
         }
     }
 
-    public string IssueToken()
+    public string IssueToken(bool automatic = false)
     {
         var token = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32))
             .Replace("+", "-")
@@ -63,15 +85,14 @@ internal sealed class ConfigStore
             .TrimEnd('=');
         lock (_lock)
         {
-            NormalizeTokenHashes(_config);
-            while (_config.TokenHashes.Count >= AgentConfig.MaxTokenCount)
-            {
-                _config.TokenHashes.RemoveAt(0);
-            }
-
-            _config.TokenHashes.Add(HashToken(token));
-            _config.TokenHash = null;
-            Save(_config);
+            if (automatic && !_config.AutoConnectEnabled)
+                throw new PrintRequestException("A conexão automática está desativada. Use o código exibido no aplicativo local.", "AUTO_CONNECT_DISABLED", 403);
+            var next = Clone(_config);
+            if (next.TokenHashes.Count >= MaxPairedBrowsers)
+                throw new PrintRequestException("Limite de navegadores atingido. Desconecte os navegadores nas configurações locais antes de parear novamente.", "PAIRING_LIMIT", 409);
+            next.TokenHashes.Add(HashToken(token));
+            Save(next);
+            _config = next;
         }
         return token;
     }
@@ -81,14 +102,22 @@ internal sealed class ConfigStore
         var cfg = Get();
         if (!cfg.RequirePairing) return true;
         if (string.IsNullOrWhiteSpace(token)) return false;
+        var candidate = Encoding.UTF8.GetBytes(HashToken(token));
+        return cfg.TokenHashes.Any(hash => CryptographicOperations.FixedTimeEquals(Encoding.UTF8.GetBytes(hash), candidate));
+    }
 
-        var tokenBytes = Encoding.UTF8.GetBytes(HashToken(token));
-        return cfg.TokenHashes.Any(tokenHash =>
-            CryptographicOperations.FixedTimeEquals(
-                Encoding.UTF8.GetBytes(tokenHash),
-                tokenBytes
-            )
-        );
+    public void RevokeTokens()
+    {
+        lock (_lock)
+        {
+            var next = Clone(_config);
+            next.TokenHash = null;
+            next.TokenHashes.Clear();
+            next.RequirePairing = true;
+            next.AutoConnectEnabled = false;
+            Save(next);
+            _config = next;
+        }
     }
 
     public static string HashToken(string token)
@@ -107,7 +136,13 @@ internal sealed class ConfigStore
                 message,
                 data
             });
-            File.AppendAllText(Path.Combine(LogsDir, "zelo-impressao.log"), line + Environment.NewLine, Encoding.UTF8);
+            lock (_logLock)
+            {
+                var path = Path.Combine(LogsDir, "zelo-impressao.log");
+                if (File.Exists(path) && new FileInfo(path).Length >= 5 * 1024 * 1024)
+                    File.Move(path, path + ".1", overwrite: true);
+                File.AppendAllText(path, line + Environment.NewLine, Encoding.UTF8);
+            }
         }
         catch
         {
@@ -121,23 +156,20 @@ internal sealed class ConfigStore
         {
             if (!File.Exists(_configPath)) return new AgentConfig();
             var config = JsonSerializer.Deserialize<AgentConfig>(File.ReadAllText(_configPath, Encoding.UTF8)) ?? new AgentConfig();
-            var hadLegacyToken = !string.IsNullOrWhiteSpace(config.TokenHash);
-            var normalized = Normalize(config);
-            if (hadLegacyToken)
-            {
-                try
-                {
-                    Save(normalized);
-                }
-                catch
-                {
-                    // The in-memory migration is enough to keep the old token valid.
-                }
-            }
-            return normalized;
+            config.TokenHashes = (config.TokenHashes ?? []).Prepend(config.TokenHash ?? "")
+                .Where(hash => !string.IsNullOrWhiteSpace(hash)).Select(hash => hash.Trim().ToLowerInvariant())
+                .Distinct(StringComparer.Ordinal).ToList();
+            config.TokenHash = null;
+            config.AllowedOrigins = (config.AllowedOrigins ?? []).Where(origin => !string.IsNullOrWhiteSpace(origin))
+                .Select(origin => origin.Trim()).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+            if (config.AllowedOrigins.Count == 0) config.AllowedOrigins = AppConstants.DefaultAllowedOrigins.ToList();
+            if (config.PreferredAutoPrintSource is not ("zelopdv" or "zelochat")) config.PreferredAutoPrintSource = "zelopdv";
+            config.PrintHistoryCapacity = Math.Clamp(config.PrintHistoryCapacity, PrintJournal.MaxEntries, PrintJournal.MaxCapacity);
+            return config;
         }
-        catch
+        catch (Exception error)
         {
+            Log("config_load_failed", new { error = error.GetType().Name });
             return new AgentConfig();
         }
     }
@@ -145,7 +177,9 @@ internal sealed class ConfigStore
     private void Save(AgentConfig config)
     {
         Directory.CreateDirectory(_dataDir);
-        File.WriteAllText(_configPath, JsonSerializer.Serialize(config, new JsonSerializerOptions { WriteIndented = true }), Encoding.UTF8);
+        var temporaryPath = _configPath + ".tmp";
+        File.WriteAllText(temporaryPath, JsonSerializer.Serialize(config, new JsonSerializerOptions { WriteIndented = true }), Encoding.UTF8);
+        File.Move(temporaryPath, _configPath, overwrite: true);
     }
 
     private static AgentConfig Clone(AgentConfig config)
@@ -156,73 +190,34 @@ internal sealed class ConfigStore
             SelectedPrinterName = config.SelectedPrinterName,
             StartWithWindows = config.StartWithWindows,
             RequirePairing = config.RequirePairing,
+            AutoConnectEnabled = config.AutoConnectEnabled,
+            PreferredAutoPrintSource = config.PreferredAutoPrintSource,
+            PrintHistoryCapacity = config.PrintHistoryCapacity,
             TokenHash = config.TokenHash,
             TokenHashes = config.TokenHashes.ToList(),
             AllowedOrigins = config.AllowedOrigins.ToList()
         };
     }
 
-    public static ApiConfigView ToApiView(AgentConfig config)
+    public static ApiConfigView ToApiView(AgentConfig config) => new()
     {
-        return new ApiConfigView
-        {
-            SelectedPrinterId = config.SelectedPrinterId,
-            SelectedPrinterName = config.SelectedPrinterName,
-            StartWithWindows = config.StartWithWindows,
-            RequirePairing = config.RequirePairing,
-            AllowedOrigins = config.AllowedOrigins.ToList()
-        };
-    }
+        SelectedPrinterId = config.SelectedPrinterId,
+        SelectedPrinterName = config.SelectedPrinterName,
+        StartWithWindows = config.StartWithWindows,
+        RequirePairing = config.RequirePairing,
+        AutoConnectEnabled = config.AutoConnectEnabled,
+        PreferredAutoPrintSource = config.PreferredAutoPrintSource,
+        PrintHistoryCapacity = config.PrintHistoryCapacity,
+        AllowedOrigins = config.AllowedOrigins.ToList()
+    };
 
-    private static AgentConfig Normalize(AgentConfig config)
-    {
-        NormalizeTokenHashes(config);
-
-        config.AllowedOrigins = config.AllowedOrigins?
-            .Where(origin => !string.IsNullOrWhiteSpace(origin))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToList()
-            ?? AppConstants.DefaultAllowedOrigins.ToList();
-
-        if (config.AllowedOrigins.Count == 0)
-        {
-            config.AllowedOrigins = AppConstants.DefaultAllowedOrigins.ToList();
-        }
-
-        return config;
-    }
-
-    private static void NormalizeTokenHashes(AgentConfig config)
-    {
-        var hashes = new List<string>();
-        if (!string.IsNullOrWhiteSpace(config.TokenHash))
-        {
-            hashes.Add(config.TokenHash);
-        }
-
-        if (config.TokenHashes is not null)
-        {
-            hashes.AddRange(config.TokenHashes);
-        }
-
-        config.TokenHashes = hashes
-            .Where(hash => !string.IsNullOrWhiteSpace(hash))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .TakeLast(AgentConfig.MaxTokenCount)
-            .ToList();
-
-        // The legacy single hash has now been copied into TokenHashes. Keeping
-        // it null prevents old and new storage formats from drifting apart.
-        config.TokenHash = null;
-    }
-
-    private static void ApplyStartup(bool enabled)
+    private void ApplyStartup(bool enabled)
     {
         if (!OperatingSystem.IsWindows()) return;
         try
         {
-            using var key = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Run", writable: true);
-            if (key is null) return;
+            using var key = Registry.CurrentUser.CreateSubKey(@"Software\Microsoft\Windows\CurrentVersion\Run", writable: true);
+            if (key is null) throw new IOException("Could not open the Windows startup registry key.");
             if (enabled)
             {
                 key.SetValue("Zelo Impressao", $"\"{Application.ExecutablePath}\"");
@@ -231,10 +226,12 @@ internal sealed class ConfigStore
             {
                 key.DeleteValue("Zelo Impressao", throwOnMissingValue: false);
             }
+            StartupError = null;
         }
-        catch
+        catch (Exception error)
         {
-            // Startup is a convenience setting; API/printing must keep running.
+            StartupError = "O Windows não permitiu alterar a inicialização automática. Verifique as permissões do usuário.";
+            Log("startup_update_failed", new { enabled, error = error.GetType().Name });
         }
     }
 }

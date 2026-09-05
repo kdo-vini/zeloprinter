@@ -163,9 +163,15 @@ async function main() {
   const packageJson = await readJson(packageJsonPath);
   const currentVersion = packageJson.version;
 
+  if (command === "check-tag") {
+    const tag = process.argv[3];
+    if (tag !== `v${currentVersion}`) fail(`Tag ${tag || "ausente"} diverge da versao ${currentVersion} do package.json.`);
+    console.log(`Release tag verified: ${tag}`);
+    return;
+  }
+
   if (command === "sync") {
-    await syncVersionFiles(currentVersion);
-    console.log(`Files synchronized to version ${currentVersion}`);
+    await setVersion(currentVersion);
     return;
   }
 
@@ -183,7 +189,7 @@ async function main() {
     return;
   }
 
-  fail(`Comando invalido: "${command}". Use sync, set ou bump.`);
+  fail(`Comando invalido: "${command}". Use sync, set, bump ou check-tag.`);
 }
 
 await main();

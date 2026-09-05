@@ -1,5 +1,5 @@
 #define MyAppName "Zelo Impressão"
-#define MyAppVersion "0.1.4"
+#define MyAppVersion "0.2.0"
 #define MyAppPublisher "Téchne Sistemas"
 #define MyAppExeName "ZeloImpressao.exe"
 #define PublishDir "..\..\release\dotnet\win-x64"
@@ -20,8 +20,11 @@ WizardStyle=modern
 SetupIconFile=..\..\assets\printer.ico
 UninstallDisplayIcon={app}\{#MyAppExeName}
 PrivilegesRequired=lowest
-ArchitecturesAllowed=x64
-ArchitecturesInstallIn64BitMode=x64
+ArchitecturesAllowed=x64compatible
+ArchitecturesInstallIn64BitMode=x64compatible
+AppMutex=Global\Techne_Zelo_Impressao
+CloseApplications=yes
+RestartApplications=no
 
 [Languages]
 Name: "brazilianportuguese"; MessagesFile: "compiler:Languages\BrazilianPortuguese.isl"
@@ -39,5 +42,5 @@ Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Parameter
 [Run]
 Filename: "{app}\{#MyAppExeName}"; Description: "Abrir {#MyAppName}"; Flags: nowait postinstall skipifsilent
 
-[UninstallRun]
-Filename: "taskkill"; Parameters: "/IM {#MyAppExeName} /F"; Flags: runhidden
+[Registry]
+Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueName: "Zelo Impressao"; Flags: uninsdeletevalue

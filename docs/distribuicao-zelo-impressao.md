@@ -14,7 +14,7 @@ O pacote compartilhado `@zelo/impressao-client` expõe as URLs oficiais de downl
 
 Na prática:
 
-- centralize o **artefato** em um path estável do próprio `zelopdv.com.br`
+- publique o **artefato canônico no GitHub Releases** de `kdo-vini/zeloprinter`; a URL estável do próprio `zelopdv.com.br` encaminha para essa release
 - centralize a **página pública** em `zelopdv.com.br/zelo-impressao`
 - dentro de cada app, prefira consumir essas URLs por módulo local ou configuração própria quando o deploy for isolado
 - não assuma que `file:../zeloprinter/packages/client` existirá no ambiente de build
@@ -107,10 +107,10 @@ O `package.json` do `zeloprinter` é a fonte de verdade, e os scripts sincroniza
    - `powershell -ExecutionPolicy Bypass -File .\native\build\Build-Windows.ps1`
 2. Gerar o instalador:
    - `iscc .\native\installer\ZeloImpressao.iss`
-3. Publicar o arquivo em:
-   - `zelopdv.com.br/downloads/zelo-impressao/<versao>/Zelo-Impressao-Setup.exe`
-4. Atualizar o alias/cópia estável em:
-   - `zelopdv.com.br/downloads/zelo-impressao/latest/Zelo-Impressao-Setup.exe`
+3. Validar a branch pelo workflow `Release Windows Installer` via workflow_dispatch, sem tag: ele gera artefatos de CI sem publicar release.
+4. Após revisão e autorização, publicar tag `v<versao>` correspondente ao package.json. O workflow publica o instalador versionado, o alias `Zelo-Impressao-Setup.exe` e os arquivos do SDK no GitHub Releases.
+   - Origem canônica: `https://github.com/kdo-vini/zeloprinter/releases/latest/download/Zelo-Impressao-Setup.exe`
+   - A rota pública do PDV deve acompanhar essa origem; não fixar `latest` em binário de uma versão anterior via configuração.
 5. Se necessário, atualizar a página:
    - `https://zelopdv.com.br/zelo-impressao`
 
@@ -118,8 +118,8 @@ O `package.json` do `zeloprinter` é a fonte de verdade, e os scripts sincroniza
 
 Quando sair uma nova versão do app local:
 
-- faça upload **uma vez** no storage central
-- atualize o arquivo/alias `latest`
+- publique **uma vez** a release no GitHub pelo workflow
+- mantenha o alias estável entre os assets da release
 - **não** altere links em `zelopdv` nem em `zelochat`
 
 Se os apps estiverem importando as constantes do pacote compartilhado, eles já continuarão apontando para o mesmo lugar.
@@ -181,7 +181,13 @@ Origens oficiais com auto-connect:
 - `https://app.zelochat.com.br`
 - endereços locais de desenvolvimento (`localhost` e `127.0.0.1` nas portas 3000 e 5173)
 
-O agente mantém até 50 tokens independentes. A instalação existente continua
+O agente mantém até 50 tokens independentes. Na 0.2.0, novas emissões são recusadas
+com `PAIRING_LIMIT` quando esse limite é atingido, preservando os navegadores
+existentes; o token mais antigo não é mais descartado silenciosamente. A revogação
+local invalida os tokens atuais e desativa autoConnect de forma persistente.
+O pareamento por código continua disponível; reativar a conexão automática exige
+o controle na tela local e não pode ser feito por HTTP.
+A instalação existente continua
 válida: o hash único antigo é migrado para a nova coleção na leitura da
 configuração.
 

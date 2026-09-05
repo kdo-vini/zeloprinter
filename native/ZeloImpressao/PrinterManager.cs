@@ -41,8 +41,10 @@ internal sealed class PrinterManager
                 }
             }
         }
-        catch
+        catch (Exception error)
         {
+            _configStore.Log("printer_enumeration_fallback", new { error = error.GetType().Name });
+            result.Clear();
             foreach (string name in PrinterSettings.InstalledPrinters)
             {
                 result.Add(new PrinterInfo
@@ -61,22 +63,25 @@ internal sealed class PrinterManager
 
     public PrinterInfo? ResolvePrinter(string? idOrName)
     {
-        var printers = ListPrinters();
+        return ResolvePrinter(ListPrinters(), _configStore.Get(), idOrName);
+    }
+
+    internal static PrinterInfo? ResolvePrinter(List<PrinterInfo> printers, AgentConfig cfg, string? idOrName)
+    {
         if (!string.IsNullOrWhiteSpace(idOrName))
         {
             var match = printers.FirstOrDefault(p =>
                 string.Equals(p.Id, idOrName, StringComparison.OrdinalIgnoreCase) ||
                 string.Equals(p.Name, idOrName, StringComparison.OrdinalIgnoreCase));
-            if (match is not null) return match;
+            return match;
         }
 
-        var cfg = _configStore.Get();
         if (!string.IsNullOrWhiteSpace(cfg.SelectedPrinterId) || !string.IsNullOrWhiteSpace(cfg.SelectedPrinterName))
         {
             var match = printers.FirstOrDefault(p =>
                 string.Equals(p.Id, cfg.SelectedPrinterId, StringComparison.OrdinalIgnoreCase) ||
                 string.Equals(p.Name, cfg.SelectedPrinterName, StringComparison.OrdinalIgnoreCase));
-            if (match is not null) return match;
+            return match;
         }
 
         return printers.FirstOrDefault(p => p.IsDefault) ?? printers.FirstOrDefault();

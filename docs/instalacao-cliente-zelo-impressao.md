@@ -27,7 +27,7 @@ Evite termos como:
 1. Baixe o instalador no computador onde a impressora está instalada.
 2. Abra o arquivo baixado.
 3. Na primeira vez, o Windows pode mostrar um aviso antes de instalar.
-4. Oriente o cliente a continuar normalmente, avançar 2 vezes e clicar em instalar.
+4. Confirme que o arquivo veio do download oficial do Zelo e siga as etapas do instalador. Se o Windows bloquear o arquivo, valide origem e versão com o suporte antes de continuar.
 5. Quando a instalação terminar, peça para abrir o Zelo Impressão.
 6. Explique que, se a janela fechar, o programa continua aberto no ícone perto do relógio do Windows.
 7. Peça para voltar ao Zelo PDV ou ao ZeloChat.
@@ -39,11 +39,11 @@ Evite termos como:
 
 ### Se o cliente acabou de baixar
 
-"Agora abra o arquivo que foi baixado. Se aparecer um aviso do Windows na primeira vez, pode continuar. Depois é só avançar, avançar e instalar."
+"Agora abra o instalador baixado no site oficial do Zelo e siga as etapas. Se aparecer um bloqueio do Windows, confirme o arquivo com o suporte."
 
 ### Se o cliente instalou mas não vê a tela
 
-"Sem problema. Procure o ícone do Zelo Impressão perto do relógio do Windows. Se não aparecer, clique na setinha para mostrar os outros ícones."
+"Abra o atalho do Zelo Impressão novamente. A partir da versão 0.2.0 ele mostra as configurações da instância que já está aberta. Você também pode usar o ícone perto do relógio do Windows."
 
 ### Se o cliente já abriu o programa
 
@@ -66,4 +66,6 @@ Se a conexão automática não acontecer:
 
 ## Observação importante
 
-Se o cliente ainda não terminar essa configuração, o sistema pode continuar usando a impressão normal do navegador até o Zelo Impressão ficar pronto.
+Com PDV e Chat abertos no mesmo computador, ambos podem ficar conectados. Nas configurações locais, escolha qual aplicativo deve ter preferência para os pedidos automáticos. A preferência padrão é ZeloPDV; o outro assume se não chegar um candidato preferido durante a breve espera.
+
+Enquanto o componente não estiver configurado, a impressão pelo navegador deve ser manual. Se a mensagem disser que o resultado é incerto, confira o papel e a fila antes de pedir uma segunda via. Se o histórico ficar cheio, use “Ampliar histórico”; esse controle preserva a proteção dos pedidos anteriores.

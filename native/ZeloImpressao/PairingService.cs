@@ -1,5 +1,5 @@
-using System.Globalization;
 using System.Security.Cryptography;
+using System.Globalization;
 
 namespace ZeloImpressao;
 
@@ -8,30 +8,43 @@ internal sealed class PairingService
     private readonly ConfigStore _configStore;
     private string _code = "";
     private DateTimeOffset? _expiresAt;
+    private readonly object _lock = new();
+    private int _failedAttempts;
 
     public PairingService(ConfigStore configStore)
     {
         _configStore = configStore;
     }
 
-    public (string Code, DateTimeOffset ExpiresAt) GetCode()
+    public (string Code, DateTimeOffset ExpiresAt) GetCode(bool renew = false)
     {
-        var now = AppClock.UtcNow;
-        if (_expiresAt is null || now.AddSeconds(30) > _expiresAt.Value || string.IsNullOrWhiteSpace(_code))
+        lock (_lock)
         {
-            _code = RandomNumberGenerator.GetInt32(100000, 999999).ToString(CultureInfo.InvariantCulture);
-            _expiresAt = now.AddMinutes(10);
+            var now = AppClock.UtcNow;
+            if (renew || _expiresAt is null || string.IsNullOrEmpty(_code) || now.AddSeconds(30) > _expiresAt.Value)
+            {
+                _code = RandomNumberGenerator.GetInt32(100000, 1000000).ToString(CultureInfo.InvariantCulture);
+                _expiresAt = now.AddMinutes(10);
+                _failedAttempts = 0;
+            }
+            return (_code, _expiresAt.Value);
         }
-        return (_code, _expiresAt.Value);
     }
 
     public string? Confirm(string code)
     {
-        if (_expiresAt is null || string.IsNullOrWhiteSpace(_code)) return null;
-        if (AppClock.UtcNow > _expiresAt.Value) return null;
-        if (!string.Equals(code.Trim(), _code, StringComparison.Ordinal)) return null;
-        _expiresAt = null;
-        _code = "";
-        return _configStore.IssueToken();
+        lock (_lock)
+        {
+            if (_expiresAt is null || AppClock.UtcNow > _expiresAt.Value || _failedAttempts >= 5) return null;
+            if (!string.Equals(code.Trim(), _code, StringComparison.Ordinal))
+            {
+                _failedAttempts++;
+                return null;
+            }
+            var token = _configStore.IssueToken();
+            _expiresAt = null;
+            _code = "";
+            return token;
+        }
     }
 }

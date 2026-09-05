@@ -35,8 +35,18 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Verify tag matches application version
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: node scripts/version-manager.mjs check-tag "${{ github.ref_name }}"
+
       - name: Sync version
         run: npm run version:sync
+
+      - name: Test SDK and native API without printing
+        run: npm test
+
+      - name: Prepare browser SDK
+        run: npm run sdk:prepare
 
       - name: Publish native Windows app
         run: npm run dotnet:publish:win
@@ -57,6 +67,8 @@ jobs:
           name: zelo-impressao-windows-installer
           path: |
             release/installer/Zelo-Impressao-*-Setup.exe
+            release/installer/Zelo-Impressao-Setup.exe
+            release/sdk/*
 
       - name: Publish GitHub release assets
         if: startsWith(github.ref, 'refs/tags/v')
@@ -65,4 +77,5 @@ jobs:
           files: |
             release/installer/Zelo-Impressao-Setup.exe
             release/installer/Zelo-Impressao-*-Setup.exe
+            release/sdk/*
 

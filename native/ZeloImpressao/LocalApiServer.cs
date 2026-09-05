@@ -17,26 +17,38 @@ internal sealed class LocalApiServer
     private readonly PrinterManager _printerManager;
     private readonly PrintService _printService;
     private WebApplication? _app;
+    private readonly string _listenUrl;
+    private readonly SemaphoreSlim _lifecycle = new(1, 1);
 
-    public LocalApiServer(ConfigStore configStore, PairingService pairingService, PrinterManager printerManager, PrintService printService)
+    public LocalApiServer(ConfigStore configStore, PairingService pairingService, PrinterManager printerManager, PrintService printService, string? listenUrl = null)
     {
         _configStore = configStore;
         _pairingService = pairingService;
         _printerManager = printerManager;
         _printService = printService;
+        _listenUrl = listenUrl ?? $"http://{AppConstants.ApiHost}:{AppConstants.ApiPort}";
     }
 
     public bool IsRunning => _app is not null;
+    internal string? ListeningUrl => _app?.Urls.FirstOrDefault();
 
     public async Task StartAsync(CancellationToken cancellationToken = default)
+    {
+        await _lifecycle.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try { await StartCoreAsync(cancellationToken).ConfigureAwait(false); }
+        finally { _lifecycle.Release(); }
+    }
+
+    private async Task StartCoreAsync(CancellationToken cancellationToken)
     {
         if (_app is not null) return;
 
         var builder = WebApplication.CreateBuilder(new WebApplicationOptions
         {
-            ApplicationName = AppConstants.ProductName
+            ApplicationName = typeof(LocalApiServer).Assembly.GetName().Name
         });
-        builder.WebHost.UseUrls($"http://{AppConstants.ApiHost}:{AppConstants.ApiPort}");
+        builder.WebHost.UseUrls(_listenUrl);
+        builder.WebHost.ConfigureKestrel(options => options.Limits.MaxRequestBodySize = AppConstants.MaxJsonBytes);
         builder.Services.Configure<JsonOptions>(options =>
         {
             options.SerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
@@ -48,21 +60,32 @@ internal sealed class LocalApiServer
         {
             handler.Run(async context =>
             {
-                context.Response.StatusCode = StatusCodes.Status400BadRequest;
+                var error = context.Features.Get<IExceptionHandlerFeature>()?.Error;
+                var printError = error as PrintRequestException;
+                var status = printError?.StatusCode ?? (error is BadHttpRequestException badRequest ? badRequest.StatusCode : error is JsonException ? 400 : 500);
+                var uncertainPrint = printError is null && status >= 500 && (context.Request.Path == "/print" || context.Request.Path == "/test-print");
+                _configStore.Log("api_request_failed", new { path = context.Request.Path.Value, status, error = error?.GetType().Name, detail = printError?.InnerException?.Message, code = printError?.Code, traceId = context.TraceIdentifier });
+                context.Response.StatusCode = status;
+                if (!await CheckCorsAsync(context)) return;
                 context.Response.ContentType = "application/json; charset=utf-8";
-                await context.Response.WriteAsJsonAsync(new ApiError { Message = "Falha ao processar solicitação." });
+                await context.Response.WriteAsJsonAsync(new ApiError
+                {
+                    Message = printError?.Message ?? (uncertainPrint ? "Não foi possível confirmar a impressão. Confira a saída antes de tentar novamente." : status == 413 ? "Payload muito grande." : "Falha ao processar solicitação."),
+                    Code = printError?.Code ?? (uncertainPrint ? "PRINT_OUTCOME_UNKNOWN" : status == 413 ? "PAYLOAD_TOO_LARGE" : "INVALID_REQUEST"),
+                    RetrySafe = printError?.RetrySafe ?? !uncertainPrint
+                });
             });
         });
 
         app.Use(async (context, next) =>
         {
+            if (!await CheckCorsAsync(context)) return;
             if (context.Request.ContentLength > AppConstants.MaxJsonBytes)
             {
                 context.Response.StatusCode = StatusCodes.Status413PayloadTooLarge;
                 await context.Response.WriteAsJsonAsync(new ApiError { Message = "Payload muito grande." });
                 return;
             }
-            if (!await CheckCorsAsync(context)) return;
             if (context.Request.Method == HttpMethods.Options)
             {
                 context.Response.StatusCode = StatusCodes.Status204NoContent;
@@ -73,7 +96,7 @@ internal sealed class LocalApiServer
 
         app.MapGet("/health", () =>
         {
-            var process = Process.GetCurrentProcess();
+            using var process = Process.GetCurrentProcess();
             var cfg = _configStore.Get();
             return Results.Json(new
             {
@@ -96,6 +119,14 @@ internal sealed class LocalApiServer
                     testPrint = true,
                     printerSelection = true,
                     silentPrinting = true,
+                    autoConnect = cfg.AutoConnectEnabled,
+                    jobIdDeduplication = true,
+                    canonicalAutoPrint = true,
+                    persistentPrintDeduplication = true,
+                    autoPrintPreferredSource = cfg.PreferredAutoPrintSource,
+                    autoPrintGraceMs = PrintDispatcher.PreferenceGraceMs,
+                    deduplicationWindowSeconds = PrintJournal.RetentionSeconds,
+                    maxRememberedJobs = cfg.PrintHistoryCapacity,
                     productName = AppConstants.ProductName
                 }
             });
@@ -114,20 +145,12 @@ internal sealed class LocalApiServer
         {
             var origin = context.Request.Headers.Origin.ToString();
             if (!AppConstants.AutoConnectOrigins.Contains(origin, StringComparer.OrdinalIgnoreCase))
-            {
-                return Results.Json(
-                    new ApiError
-                    {
-                        Code = string.IsNullOrWhiteSpace(origin)
-                            ? "AUTO_CONNECT_ORIGIN_REQUIRED"
-                            : "AUTO_CONNECT_NOT_ALLOWED",
-                        Message = "Esta origem não pode fazer conexão automática. Use o código de pareamento."
-                    },
-                    statusCode: 403
-                );
-            }
-
-            var token = _configStore.IssueToken();
+                return Results.Json(new ApiError
+                {
+                    Code = string.IsNullOrWhiteSpace(origin) ? "AUTO_CONNECT_ORIGIN_REQUIRED" : "AUTO_CONNECT_NOT_ALLOWED",
+                    Message = "Conecte este navegador usando o código exibido no aplicativo."
+                }, statusCode: 403);
+            var token = _configStore.IssueToken(automatic: true);
             return Results.Json(new { ok = true, token });
         });
 
@@ -141,17 +164,15 @@ internal sealed class LocalApiServer
         {
             if (!RequireAuth(context)) return Unauthorized();
             var cfg = _configStore.Get();
-            return Results.Json(new
-            {
-                ok = true,
-                config = ConfigStore.ToApiView(cfg)
-            });
+            return Results.Json(new { ok = true, config = ConfigStore.ToApiView(cfg) });
         });
 
         app.MapPost("/config", async (HttpContext context) =>
         {
             if (!RequireAuth(context)) return Unauthorized();
             var patch = await ReadJson<ConfigPatch>(context.Request) ?? new ConfigPatch();
+            if (patch.RequirePairing.HasValue || patch.AutoConnectEnabled.HasValue)
+                throw new PrintRequestException("A segurança do pareamento só pode ser alterada no aplicativo local.", "LOCAL_SETTING_ONLY", 403);
             var cfg = _configStore.Update(patch);
             return Results.Json(new { ok = true, config = ConfigStore.ToApiView(cfg) });
         });
@@ -159,38 +180,52 @@ internal sealed class LocalApiServer
         app.MapPost("/print", async (HttpContext context) =>
         {
             if (!RequireAuth(context)) return Unauthorized();
-            var job = await ReadJson<PrintJob>(context.Request) ?? throw new InvalidOperationException("Payload inválido.");
-            var printer = _printService.Print(job);
-            _configStore.Log("print_job_ok", new { job.Source, job.Type, printer = printer.Name });
-            return Results.Json(new { ok = true, printer, mode = job.Content.Format == "raw_escpos_base64" ? "raw" : "driver" });
+            var job = await ReadJson<PrintJob>(context.Request) ?? throw new PrintRequestException("Payload inválido.", "INVALID_JOB");
+            var stopwatch = Stopwatch.StartNew();
+            var result = await _printService.PrintAsync(job);
+            _configStore.Log("print_job_accepted", new { job.JobId, result.Source, job.Type, duplicate = result.Duplicate, elapsedMs = stopwatch.ElapsedMilliseconds, traceId = context.TraceIdentifier });
+            return Results.Json(new
+            {
+                ok = true, job.JobId, status = result.Duplicate ? "deduplicated" : "spooled", printer = result.Printer, mode = result.Mode,
+                arbitration = job.Intent?.Mode == "automatic" ? new { mode = "automatic", source = result.Source, job.Intent.OrderId, job.Intent.Purpose, duplicate = result.Duplicate } : null
+            });
         });
 
         app.MapPost("/test-print", async (HttpContext context) =>
         {
             if (!RequireAuth(context)) return Unauthorized();
             var body = await ReadJson<TestPrintRequest>(context.Request);
-            var printer = _printService.TestPrint(body?.PrinterId);
-            _configStore.Log("test_print_ok", new { printer = printer.Name });
-            return Results.Json(new { ok = true, printer, mode = "raw" });
+            var result = await _printService.TestPrintAsync(body?.PrinterId);
+            _configStore.Log("test_print_ok", new { printer = result.Printer?.Name });
+            return Results.Json(new { ok = true, printer = result.Printer, mode = "raw" });
         });
 
+        try { await app.StartAsync(cancellationToken).ConfigureAwait(false); }
+        catch { await app.DisposeAsync().ConfigureAwait(false); throw; }
         _app = app;
-        await app.StartAsync(cancellationToken);
         _configStore.Log("api_started");
     }
 
     public async Task StopAsync(CancellationToken cancellationToken = default)
     {
-        if (_app is null) return;
-        await _app.StopAsync(cancellationToken);
-        await _app.DisposeAsync();
-        _app = null;
+        await _lifecycle.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try { await StopCoreAsync(cancellationToken).ConfigureAwait(false); }
+        finally { _lifecycle.Release(); }
+    }
+
+    private async Task StopCoreAsync(CancellationToken cancellationToken)
+    {
+        var app = _app;
+        if (app is null) return;
+        try { await app.StopAsync(cancellationToken).ConfigureAwait(false); }
+        finally { _app = null; await app.DisposeAsync().ConfigureAwait(false); }
     }
 
     public async Task RestartAsync()
     {
-        await StopAsync();
-        await StartAsync();
+        await _lifecycle.WaitAsync().ConfigureAwait(false);
+        try { await StopCoreAsync(default).ConfigureAwait(false); await StartCoreAsync(default).ConfigureAwait(false); }
+        finally { _lifecycle.Release(); }
     }
 
     private async Task<bool> CheckCorsAsync(HttpContext context)
@@ -230,6 +265,7 @@ internal sealed class LocalApiServer
 
     private static async Task<T?> ReadJson<T>(HttpRequest request)
     {
+        if (!request.HasJsonContentType()) throw new BadHttpRequestException("Content-Type deve ser application/json.", StatusCodes.Status415UnsupportedMediaType);
         if (request.ContentLength > AppConstants.MaxJsonBytes)
             throw new InvalidOperationException("Payload muito grande.");
 
@@ -238,4 +274,5 @@ internal sealed class LocalApiServer
             PropertyNameCaseInsensitive = true
         });
     }
+
 }

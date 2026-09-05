@@ -5,6 +5,7 @@ export const ZELO_IMPRESSAO_INSTALLER_DOWNLOAD_URL: string;
 export const ZELO_IMPRESSAO_BROWSER_SDK_URL: string;
 export const ZELO_IMPRESSAO_UNAVAILABLE_MESSAGE: string;
 export const ZELO_IMPRESSAO_PRINTER_UNAVAILABLE_MESSAGE: string;
+export const ZELO_IMPRESSAO_OUTCOME_UNKNOWN_MESSAGE: string;
 
 export type ZeloImpressaoSource = "zelopdv" | "zelochat";
 export type ZeloImpressaoJobType =
@@ -12,6 +13,20 @@ export type ZeloImpressaoJobType =
   | "kitchen_order"
   | "test"
   | "raw_escpos";
+
+export type ZeloImpressaoPrintIntent =
+  | { mode: "automatic"; orderId: string; purpose: "order_ticket" }
+  | { mode: "manual"; orderId?: string; purpose?: string };
+
+export interface ZeloImpressaoPrintResult {
+  ok: true;
+  jobId?: string;
+  status: "spooled" | "deduplicated";
+  /** Null on a replay restored from privacy-preserving persistent history. */
+  printer: ZeloImpressaoPrinter | null;
+  mode: "raw" | "driver";
+  arbitration: { mode: "automatic"; source: ZeloImpressaoSource; orderId: string; purpose: "order_ticket"; duplicate: boolean } | null;
+}
 
 export interface ZeloImpressaoPrinter {
   id: string;
@@ -23,9 +38,13 @@ export interface ZeloImpressaoPrinter {
   portName?: string;
 }
 
+/** jobId identifies one print intention. Reuse only for retries; a second copy gets a new id. */
 export interface ZeloImpressaoPrintJob {
+  jobId?: string;
   source: ZeloImpressaoSource;
   companyStoreId?: string;
+  /** Automatic: companyStoreId = owner auth UUID, orderId = public.zelo_orders.id. */
+  intent?: ZeloImpressaoPrintIntent;
   type: ZeloImpressaoJobType;
   printerId?: string;
   printerName?: string;
@@ -73,7 +92,10 @@ export function getConfig(options?: Record<string, unknown>): Promise<{
   selectedPrinterName: string | null;
   startWithWindows: boolean;
   requirePairing: boolean;
+  autoConnectEnabled: boolean;
   allowedOrigins: string[];
+  preferredAutoPrintSource: ZeloImpressaoSource;
+  printHistoryCapacity: number;
 }>;
 export function saveConfig(
   config: Record<string, unknown>,
@@ -82,11 +104,13 @@ export function saveConfig(
 export function sendPrintJob(
   job: ZeloImpressaoPrintJob,
   options?: Record<string, unknown>,
-): Promise<unknown>;
+): Promise<ZeloImpressaoPrintResult>;
 export function sendRawEscposPrintJob(
   job: {
+    jobId?: string;
     source: ZeloImpressaoSource;
     companyStoreId?: string;
+    intent?: ZeloImpressaoPrintIntent;
     printerId?: string;
     printerName?: string;
     bytes: Uint8Array | number[];
@@ -94,7 +118,7 @@ export function sendRawEscposPrintJob(
     metadata?: Record<string, unknown>;
   },
   options?: Record<string, unknown>,
-): Promise<unknown>;
+): Promise<ZeloImpressaoPrintResult>;
 export function sendTestPrint(
   printerId?: string,
   options?: Record<string, unknown>,

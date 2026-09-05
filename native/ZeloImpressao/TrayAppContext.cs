@@ -70,6 +70,7 @@ internal sealed class TrayAppContext : ApplicationContext
         {
             _notifyIcon.Visible = false;
             _notifyIcon.Dispose();
+            _settingsForm?.Dispose();
         }
         base.Dispose(disposing);
     }
@@ -84,8 +85,13 @@ internal sealed class TrayAppContext : ApplicationContext
         menu.Items.Add("Sair", null, async (_, _) =>
         {
             _notifyIcon.Visible = false;
-            await _apiServer.StopAsync();
-            Application.Exit();
+            try
+            {
+                using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+                await _apiServer.StopAsync(timeout.Token);
+            }
+            catch (Exception error) { _configStore.Log("api_shutdown_failed", new { error = error.GetType().Name }); }
+            finally { Application.Exit(); }
         });
         return menu;
     }

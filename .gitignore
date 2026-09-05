@@ -3,4 +3,6 @@ dist/
 release/
 native/ZeloImpressao/bin/
 native/ZeloImpressao/obj/
+native/ZeloImpressao.Tests/bin/
+native/ZeloImpressao.Tests/obj/
 *.log

@@ -1,6 +1,6 @@
 {
   "name": "zelo-impressao",
-  "version": "0.1.4",
+  "version": "0.2.0",
   "private": true,
   "author": "Techne Sistemas",
   "description": "Componente local do Zelo para impressao automatica de comprovantes, pedidos e comandas.",
@@ -10,9 +10,11 @@
   },
   "type": "module",
   "scripts": {
+    "test": "npm run test:sdk && npm run test:native",
+    "test:sdk": "node --test tests/*.test.mjs",
+    "test:native": "dotnet run --project native/ZeloImpressao.Tests -c Release",
     "build": "npm run dotnet:build",
     "pack:win": "npm run dotnet:publish:win && iscc .\\native\\installer\\ZeloImpressao.iss",
-    "test": "node --test tests/client.test.mjs",
     "dotnet:build": "npm run version:sync && dotnet build .\\native\\ZeloImpressao\\ZeloImpressao.csproj -c Release",
     "dotnet:publish:win": "npm run version:sync && powershell -ExecutionPolicy Bypass -File ./native/build/Build-Windows.ps1",
     "sdk:prepare": "node ./scripts/prepare-browser-sdk.mjs",
@@ -21,13 +23,5 @@
     "version:bump:patch": "node ./scripts/version-manager.mjs bump patch",
     "version:bump:minor": "node ./scripts/version-manager.mjs bump minor",
     "version:bump:major": "node ./scripts/version-manager.mjs bump major"
-  },
-  "dependencies": {
-    "zod": "^3.25.76"
-  },
-  "devDependencies": {
-    "@types/node": "^22.14.0",
-    "tsx": "^4.21.0",
-    "typescript": "^5.8.2"
   }
 }

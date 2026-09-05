@@ -1,133 +1,52 @@
-# Zelo Impressão - Memória Técnica
+# Zelo Impressão — memória técnica atual
 
-## Arquitetura de impressão
+Atualizado em 2026-09-04. Evidências e pendências em [auditoria](docs/audits/2026-09-04-zeloprinter.md).
 
-Zelo Impressão é o componente local Windows do ecossistema Zelo para impressão automática de comprovantes, pedidos e comandas. Ele substitui WebUSB como caminho principal e expõe uma API HTTP apenas em `127.0.0.1:17321`.
+## Implementação
+O aplicativo é .NET 8/WinForms para Windows, com ASP.NET Core em 127.0.0.1:17321, tray, WMI e Winspool/PrintDocument. Electron não está mais no repositório. Node executa apenas scripts de versão, artefato browser e testes; não há dependências npm de runtime.
 
-Decisão atual de tecnologia: a implementação definitiva deve ser .NET nativo para Windows. Electron fica como protótipo/legado do contrato, mas não deve ser o alvo do rollout inicial para clientes. A versão .NET deve operar sem janela principal aberta, ficar no tray, iniciar com Windows e ser distribuída como instalador self-contained.
+- Program.cs: instância única, inicialização e shutdown.
+- LocalApiServer.cs: HTTP, CORS, autenticação, limite de corpo e erros estruturados.
+- ConfigStore.cs/PairingService.cs: configuração e pareamento.
+- PrintDispatcher.cs/PrintJournal.cs: submissão serial, arbitragem PDV/Chat e deduplicação persistente.
+- InstanceSignal.cs: segunda execução solicita abertura da janela via pipe restrito ao usuário atual.
+- PrintService.cs/RawPrinter.cs: validação, driver de texto e bytes ESC/POS.
+- packages/client/src/index.js e browser.js: clientes ESM e IIFE; testes de paridade em tests/client.test.mjs.
 
-Fluxo prioritário:
+Configuração fica em %APPDATA%\Zelo Impressao\config.json. Gravação usa arquivo temporário seguido de substituição. Logs em logs/zelo-impressao.log giram em 5 MiB, com um arquivo anterior. Tokens e conteúdo do cupom não são registrados.
 
-1. Zelo PDV ou ZeloChat chama o SDK compartilhado `@zelo/impressao-client`.
-2. O SDK detecta `GET /health` e, para origens oficiais, chama `POST /connect` automaticamente.
-3. O SDK envia o job para `http://127.0.0.1:17321` usando o token salvo no navegador.
-4. Zelo Impressão valida origem, token, tamanho e schema do payload.
-5. O componente resolve a impressora selecionada ou a padrão do Windows.
-6. Impressão na versão .NET:
-   - ESC/POS/raw: enviado ao spooler do Windows via `winspool.drv`.
-   - Texto/HTML: impresso pelo driver do Windows via `PrintDocument` após normalização para texto.
-7. Se o componente local não estiver disponível, os apps mantêm fallback pelo navegador.
+## Contrato local
 
-## Contrato da API Local
+| Rota | Proteção | Resultado |
+| --- | --- | --- |
+| GET /health | allowlist de Origin quando presente | disponibilidade, versão, memória, capacidades |
+| POST /pair | código local temporário | novo token independente |
+| POST /connect | Origin na lista separada de origens confiáveis | token independente, comportamento lançado na 0.1.4 |
+| GET /printers | token | impressoras Windows |
+| GET/POST /config | token | preferências públicas, sem hashes |
+| POST /print | token | status: spooled após submissão ao spooler |
+| POST /test-print | token | teste ESC/POS na mesma fila |
 
-Base URL: `http://127.0.0.1:17321`
+A conexão automática de 0.1.4 foi preservada: `/connect` exige Origin tanto no CORS quanto em `AutoConnectOrigins`, lista fixa separada. Sem Origin ou apenas com origem adicional no CORS, não emite token. Não exige código para origens confiáveis; `/pair` continua disponível. Os SDKs tentam autoConnect por padrão e validam tokens existentes em `/config` antes de declarar conexão. Uma falha transitória dessa validação não cria outro token; `autoConnect: false` permite manter somente o pareamento por código. source aceita zelopdv e zelochat; ZeloMenu não chama o componente diretamente. companyStoreId participa da dedupe automática, mas não é autorização de tenant.
 
-- `GET /health`
-  - Público para detecção.
-  - Retorna status, versão, OS, memória do processo, pareamento e capacidades.
+Pareamento mantém até 50 hashes, compatível com a versão publicada 0.1.4. O hash legado é migrado e listas existentes são normalizadas sem descartar credenciais válidas. Ao atingir o limite, novas emissões recebem `PAIRING_LIMIT`; não há revogação silenciosa do token mais antigo. Cada código dura até dez minutos, é de uso único e bloqueia após cinco erros, até renovação local. “Desconectar navegadores” revoga os tokens e desativa autoConnect no mesmo estado persistido: `/connect` passa a recusar a origem com `AUTO_CONNECT_DISABLED`, inclusive após reinício. `/pair` continua funcional e não reativa autoConnect. A tela local oferece reativação explícita; HTTP não pode alterar `requirePairing` nem `autoConnectEnabled`. Desmarcar somente a permissão de conexão automática impede novas emissões, sem revogar tokens atuais; a ação de desconectar executa ambos. Tokens não expiram automaticamente.
 
-- `POST /connect`
-  - Público somente para origens oficiais e endereços de desenvolvimento autorizados.
-  - Emite um token independente para o navegador atual.
-  - Não exige código; origens de terceiros devem usar `/pair`.
+JSON é limitado a 512 KiB, inclusive chunked. Conteúdo vazio, formato desconhecido e base64 inválido são recusados antes de acessar a impressora. Uma impressora escolhida que desapareceu provoca erro, sem desviar o cupom para outro dispositivo.
 
-- `GET /printers`
-  - Requer `X-Zelo-Impressao-Token`.
-  - Retorna impressoras instaladas no Windows com nome, id, padrão, status e driver.
+## Impressão e recuperação
+Na versão 0.2.0, pedidos automáticos enviam `intent: { mode: "automatic", orderId: "public.zelo_orders.id", purpose: "order_ticket" }`. `companyStoreId` é o UUID auth do dono da loja em ambos os clientes. A chave canônica normaliza esses UUIDs e ignora source, jobId, impressora e rendering. A preferência padrão é PDV, alterável para Chat na tela existente ou `/config` autenticado. O candidato não preferido aguarda 1500 ms; se o preferido não chegar, imprime. Preferência é limitada a essa janela, não à presença de abas. Após iniciar o executor, só uma recusa explicitamente anterior ao spooler pode trocar uma vez para o outro candidato já recebido. Resultado incerto nunca troca.
 
-- `POST /print`
-  - Requer token.
-  - Recebe jobs `receipt`, `kitchen_order`, `test` ou `raw_escpos`.
-  - Conteúdo aceito: `text`, `html`, `raw_escpos_base64`.
+Sem intenção automática, `jobId` opcional (até 128 caracteres) continua escopado por source/companyStoreId e exige mesmo conteúdo: conflito retorna 409 JOB_ID_CONFLICT. Segunda via explícita usa `intent.mode: "manual"` e um novo jobId. Reenvio da mesma intenção mantém o id. A fila permite 16 pendentes e executa uma submissão por vez.
 
-- `POST /test-print`
-  - Requer token.
-  - Envia um recibo curto de teste para a impressora configurada ou informada.
+`print-history.jsonl` guarda somente hashes e estado/source/mode/timestamp por sete dias; não guarda cupom, nomes de impressoras ou UUIDs em claro. Reserva é gravada e flushed antes do spool. Reserva incompleta após restart é UNKNOWN; sucesso persistido volta `status: "deduplicated"`, `printer: null`. Há 1000 resultados em cache quente; removê-los não remove histórico persistente. Capacidade padrão é 10000 registros, ampliável em passos de 10000 até 50000 sem remover registros. Ao lotar, novas impressões com chave são recusadas; duplicatas confirmadas continuam sendo reconhecidas. Arquivo corrompido bloqueia novas submissões com chave; último append incompleto preserva registros anteriores. Nunca apagar o histórico para contornar a proteção. Retenção expirada e perda/exclusão do arquivo limitam a proteção; não existe exactly-once físico.
 
-- `GET /config`
-  - Requer token.
-  - Retorna impressora selecionada, inicialização com Windows e origens permitidas.
+Sucesso significa aceitação pelo spooler, não impressão física. Recusas anteriores ao spooler são retrySafe: true e permitem nova tentativa após correção. Falhas incertas ficam em cache e retornam PRINT_OUTCOME_UNKNOWN, retrySafe: false. Não há retry automático.
 
-- `POST /config`
-  - Requer token.
-  - Atualiza impressora selecionada, nome e preferências locais permitidas.
+SDKs consultam /health antes de enviar. Impressão automática exige `canonicalAutoPrint` e `persistentPrintDeduplication`; agente ausente/antigo produz `AUTO_PRINT_COORDINATION_REQUIRED`, `retrySafe: false`, sem POST/fallback automático. Ausência no preflight de uma impressão manual permite fallback. Falha de transporte/JSON depois de iniciar o POST exige conferir a saída. Timeout inclui leitura do corpo. Cancelar HTTP não cancela a tarefa nativa nem sua reserva. Detecção de pareamento testa o token via /config.
 
-- `POST /pair`
-  - Público, mas exige código de 6 dígitos exibido no app local.
-  - Retorna token local que o SDK salva no `localStorage` do navegador.
+## Validação e distribuição
+npm test executa testes JS e harness nativo sem imprimir. npm run build compila Release. npm run dotnet:publish:win gera self-contained. npm run sdk:prepare prepara browser/manifest. CI testa antes de empacotar e inclui SDK nos artefatos. Instalador depende do Inno Setup.
 
-## Integração Zelo PDV
+O harness permite roll-forward em máquinas com runtime mais novo e pode ser publicado self-contained no runtime 8. Testes usam configuração temporária, pipes isolados e porta efêmera, sem alterar startup real. Falha de startup agora aparece em logs/UI; o instalador remove a chave Run ao desinstalar e não força taskkill. CI verifica que o tag coincide com package.json antes de produzir a release.
 
-Arquivo principal: `/home/vinicius/code/zelopdv/src/lib/printService.js`.
-
-As funções públicas existentes continuam iguais:
-
-- `printVenda`
-- `printMovCaixa`
-- `printPagamentoFiado`
-- `printTeste`
-
-Mudança de comportamento: cada função tenta Zelo Impressão primeiro via `sendRawEscposPrintJob`. Se falhar, mantém o fallback HTML/iframe pelo navegador. O WebUSB antigo permanece disponível na tela de integrações como recurso legado/opcional, mas deixou de ser o caminho principal.
-
-A tela `/perfil` ganhou o bloco "Impressão automática" para:
-
-- detectar status: conectado, não instalado ou desconectado;
-- conectar automaticamente e usar código somente como fallback;
-- listar impressoras do Windows;
-- salvar impressora selecionada;
-- enviar impressão de teste;
-- orientar fallback pelo navegador.
-
-## Integração ZeloChat
-
-Arquivos principais:
-
-- `/home/vinicius/code/zelochat/src/services/printerService.ts`
-- `/home/vinicius/code/zelochat/src/hooks/usePrinter.ts`
-- `/home/vinicius/code/zelochat/src/components/PrinterButton.tsx`
-
-O hook `usePrinter()` preserva a API consumida pelo app, mas agora usa Zelo Impressão como backend local. O botão de impressão mostra status, tenta conexão automática e exibe o campo de pareamento por código somente quando necessário.
-
-Pedidos novos usam `POST /print` com `type: "kitchen_order"` e conteúdo em texto. Relatórios do dia tentam Zelo Impressão e, por serem acionados por clique do operador, podem cair para impressão pelo navegador se o componente local estiver indisponível.
-
-## Fallback
-
-PDV:
-
-1. Zelo Impressão local.
-2. Impressão HTML pelo navegador.
-3. Mensagem amigável via toast.
-
-ZeloChat:
-
-1. Zelo Impressão local.
-2. Relatório manual do dia pode abrir fallback pelo navegador.
-3. Auto-print de pedido não bloqueia fluxo; falha vira aviso ao operador.
-
-Mensagens técnicas como conexão recusada são traduzidas para textos operacionais, por exemplo: "O Zelo Impressão não está aberto neste computador. Abra o aplicativo ou use a impressão pelo navegador."
-
-## Segurança
-
-Decisões implementadas:
-
-- API escuta somente em `127.0.0.1`.
-- CORS por allowlist para domínios Zelo e desenvolvimento local.
-- Token local independente por navegador via conexão automática ou pareamento manual.
-- Até 50 hashes de token são mantidos; o hash único legado é migrado durante a leitura da configuração.
-- Auto-connect usa uma allowlist própria, separada da allowlist geral de CORS.
-- Endpoints sensíveis exigem `X-Zelo-Impressao-Token`.
-- Payload máximo de 512 KB.
-- Validação de schema com Zod.
-- Sem endpoint para ler arquivos arbitrários ou executar comandos recebidos da web.
-- Impressão RAW só recebe bytes do job e escreve arquivo temporário interno, removido após envio ao spooler.
-- Configuração local fica no `userData` do Electron.
-
-## Melhorias futuras
-
-- Medir RSS em idle no Windows real e definir teto operacional antes do rollout amplo.
-- Publicar instalador assinado com code signing.
-- Adicionar atualização automática.
-- Expor status avançado de fila/spooler quando o driver oferecer dados confiáveis.
-- Adicionar múltiplos perfis de impressora por tipo de job: caixa, cozinha, entrega.
-- Suportar templates HTML oficiais por tipo de recibo.
-- Adicionar testes E2E no Windows com impressora virtual e impressora térmica real.
+[Distribuição](docs/distribuicao-zelo-impressao.md) é a referência das URLs. Edição local do SDK não atualiza cópias dos apps nem artefatos publicados. Hardware térmico, instalador limpo, assinatura, permissão de rede local do navegador e interrupção física de impressão exigem homologação operacional.

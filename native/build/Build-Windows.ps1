@@ -12,6 +12,7 @@ $publishDir = Join-Path $root "release\dotnet\$Runtime"
 Write-Host "Publishing Zelo Impressão ($Runtime, self-contained)..." -ForegroundColor Cyan
 
 dotnet restore $project
+if ($LASTEXITCODE -ne 0) { throw "dotnet restore falhou com código $LASTEXITCODE" }
 dotnet publish $project `
   -c $Configuration `
   -r $Runtime `
@@ -22,6 +23,7 @@ dotnet publish $project `
   /p:EnableCompressionInSingleFile=true `
   /p:DebugType=None `
   /p:DebugSymbols=false
+if ($LASTEXITCODE -ne 0) { throw "dotnet publish falhou com código $LASTEXITCODE" }
 
 Write-Host "Publish pronto em: $publishDir" -ForegroundColor Green
 Write-Host "O executável é self-contained: o cliente não precisa instalar .NET manualmente." -ForegroundColor Green

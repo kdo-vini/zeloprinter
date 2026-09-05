@@ -6,14 +6,19 @@ internal static class Program
     private static void Main(string[] args)
     {
         using var mutex = new Mutex(initiallyOwned: true, AppConstants.MutexName, out var createdNew);
-        if (!createdNew) return;
+        if (!createdNew)
+        {
+            try { InstanceSignal.NotifyAsync().GetAwaiter().GetResult(); }
+            catch (Exception) { /* The existing tray remains available if IPC is unavailable. */ }
+            return;
+        }
 
         ApplicationConfiguration.Initialize();
 
         var configStore = new ConfigStore();
         var pairingService = new PairingService(configStore);
         var printerManager = new PrinterManager(configStore);
-        var printService = new PrintService(printerManager);
+        var printService = new PrintService(printerManager, configStore);
         var apiServer = new LocalApiServer(configStore, pairingService, printerManager, printService);
 
         try
@@ -31,8 +36,22 @@ internal static class Program
             );
         }
 
-        var context = new TrayAppContext(configStore, pairingService, printerManager, printService, apiServer);
+        using var context = new TrayAppContext(configStore, pairingService, printerManager, printService, apiServer);
+        using var uiDispatcher = new Control();
+        _ = uiDispatcher.Handle;
+        using var signals = new CancellationTokenSource();
+        var signalTask = InstanceSignal.ListenAsync(InstanceSignal.PipeName,
+            () => uiDispatcher.BeginInvoke(new Action(context.ShowSettings)),
+            error => configStore.Log("instance_signal_failed", new { error = error.GetType().Name }), signals.Token);
         if (args.Contains("--show", StringComparer.OrdinalIgnoreCase)) context.ShowSettings();
-        Application.Run(context);
+        try { Application.Run(context); }
+        finally
+        {
+            signals.Cancel();
+            signalTask.GetAwaiter().GetResult();
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+            try { apiServer.StopAsync(timeout.Token).GetAwaiter().GetResult(); }
+            catch (Exception error) { configStore.Log("api_shutdown_failed", new { error = error.GetType().Name }); }
+        }
     }
 }

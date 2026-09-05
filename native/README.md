@@ -8,9 +8,19 @@ Somente o ambiente de build precisa do .NET SDK e do Inno Setup:
 
 - Windows 10/11
 - .NET 8 SDK
-- Inno Setup 6, para gerar instalador `.exe`
+- Inno Setup 6.3 ou posterior, para gerar instalador `.exe`
 
 O cliente final não precisa instalar .NET manualmente. O publish é `self-contained`.
+
+## Validação automatizada
+
+`npm test` verifica os SDKs e o harness nativo com Kestrel real, configuração temporária e porta efêmera. Não imprime papel nem modifica startup do usuário. `npm run build` compila Release.
+
+A versão 0.2.0 arbitra pedidos automáticos entre PDV e Chat e persiste hashes/resultados por sete dias. Veja o [contrato canônico](../docs/integracao-plug-and-play.md). A preferência e a capacidade do histórico podem ser ajustadas na janela existente; segunda via explícita permanece separada da deduplicação automática.
+
+O harness permite roll-forward em máquina com runtime mais novo. Para testar o runtime exato, execute `dotnet publish native/ZeloImpressao.Tests -c Release -r win-x64 --self-contained true -o release/tests` e `release/tests/ZeloImpressao.Tests.exe`.
+
+Evidências e limites de homologação: [auditoria de 2026-09-04](../docs/audits/2026-09-04-zeloprinter.md).
 
 ## Build install and play
 
@@ -35,7 +45,7 @@ iscc .\native\installer\ZeloImpressao.iss
 Saída:
 
 ```text
-release\installer\Zelo-Impressao-0.1.4-Setup.exe
+release\installer\Zelo-Impressao-0.2.0-Setup.exe
 ```
 
 ## Versionamento
@@ -74,7 +84,7 @@ A estratégia oficial de distribuição, links de download, versionamento e cons
 
 Em resumo:
 
-- o instalador deve ser publicado uma única vez no storage/CDN central
+- o instalador canônico é publicado uma única vez no GitHub Releases de `kdo-vini/zeloprinter`; a URL pública estável encaminha para a release
 - `zelopdv` e `zelochat` devem consumir o link via `@zelo/impressao-client`
 - a URL estável esperada é `https://zelopdv.com.br/downloads/zelo-impressao/latest/Zelo-Impressao-Setup.exe`
 - a página pública esperada é `https://zelopdv.com.br/zelo-impressao`
@@ -84,11 +94,9 @@ Em resumo:
 - Instalar em Windows limpo.
 - Confirmar que o app abre no tray sem janela obrigatória.
 - Confirmar inicialização com Windows.
-- Confirmar `/health`, `/connect`, `/pair`, `/printers`, `/config`, `/test-print`.
-- Confirmar auto-connect do PDV e do ZeloChat em origens oficiais.
-- Confirmar pareamento por código para uma origem de terceiro.
-- Confirmar que PDV e ZeloChat permanecem conectados simultaneamente.
+- Confirmar `/health`, `/printers`, `/config`, `/test-print`.
+- Conectar PDV e Chat automaticamente e por código; revogar localmente e confirmar que autoConnect permanece bloqueado após reinício.
 - Testar impressora térmica USB instalada no Windows.
 - Testar impressora de rede.
 - Testar erro com impressora desligada.
-- Confirmar fallback dos apps pelo navegador quando o app local está fechado.
+- Confirmar que app fechado permite fallback manual; impressão automática exige coordenação nativa e não abre fallback concorrente.
